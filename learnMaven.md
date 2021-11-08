@@ -1,5 +1,13 @@
 # Maven学习
 
+    根目录：工程名
+    |---src：源码
+    |---|---main:存放主程序
+    |---|---|---java：java源码文件
+    |---|---|---resource：存放框架的配置文件
+    |---|---test：存放测试程序
+    |---pop.xml：maven的核心配置文件
+
 ## 1. 什么是Maven
     Maven 是专门用于构建和管理Java相关项目的工具。使用Maven管理项目的好处主要有两点，
       1. 其一是使用Maven管理的 Java 项目都有着相同的项目结构。 有一个pom.xml 用于维护当前项目都用了哪些jar包；所有的java代码都放在 src/main/java 下面； 所有的测试代码都放在src/test/java 下面 
@@ -73,3 +81,6 @@
 |项目级（Per Project）|定义在项目的POM文件pom.xml中|
 |用户级 （Per User）|定义在Maven的设置xml文件中 (%USER_HOME%/.m2/settings.xml)|
 全局（Global）|定义在 Maven 全局的设置 xml 文件中 (%M2_HOME%/conf/settings.xml)|
+
+## 4. 包管理
+    公共的依赖可以在 pom.xml 里不用一个个加到<dependences></dependences>标签中，而是写一个父 pom.xml 将公用的依赖放在父 pom.xml 文件的<dependences></dependences>标签中
