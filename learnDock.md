@@ -11,3 +11,22 @@
     1. 镜像，类比如java的模版类（环境，如tomcat环境），通过这个类可以new多个实例（容器）
     2. 容器就是简易的linux，能够独立运行一个或一组应用
     3. 仓库 存放镜像的地方（公有、私有）
+
+## 怎么下载镜像？
+    先在本地查找镜像，如果没有则去远程DockerHub下载镜像
+
+## 工作原理
+    Client-Server结构系统，Docker守护进程运行在主机上（linux等），客户端通过socket与交流
+    同一主机上多个容器共享虚拟机的内核
+
+## 常用命令
+    docker command --help 帮助文档
+    docker info 显示系统信息
+### 镜像命令
+    docker images   显示下载的镜像
+        选项 -a，显示所有
+            -q，只显示id
+    docker search imageName 搜索image
+        选项 -f 过滤（-f=STARS=3000，星大于3000的）
+    docker pull imageName[:tag] 下载镜像
+    docker rmi -f 镜像id 删除镜像
