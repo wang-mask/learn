@@ -26,7 +26,7 @@
 	Changes not staged for commit:表示工作区，暂时区都存在的file（文件或文件夹），在工作区进行修改或删除，但是没有add到暂存区
 	Untracked files:表示只在工作区有的file（文件或文件夹），也就是在暂时区没有该file
 
-## 6. 回退版本 git reset --hard commid_id（HEAD^、或者commit id）
+## 6. 回退版本 git reset commid_id[filename]（HEAD^、或者commit id）
 	git reset HEAD filename 撤销暂存取的修改回到工作区
 ## 7. 撤销工作区的修改  git checkout -- filename
 	一种是自修改后还没有被放到暂存区，现在，撤销修改就回到和版本库一模一样的状态；

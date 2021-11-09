@@ -30,3 +30,34 @@
         选项 -f 过滤（-f=STARS=3000，星大于3000的）
     docker pull imageName[:tag] 下载镜像
     docker rmi -f 镜像id 删除镜像
+
+## 容器命令
+    docker run [可选参数] image 新建容器并命名
+        参数：
+        --name="name"
+        -d 后台运行，后台运行时必须运行着应用不然会自动停止，除非还有前台应用（交互命令行）
+        -it 以交互方式运行，进入容器查看内容
+            docker run -it image bin/bash
+        -p 指定容器端口
+            -p ip:主机端口:容器端口
+            -p 容器端口
+    exit 退出容器，并停止该容器
+    ctrl + p + q 退出容器，但容器继续运行
+    docker exec -it 容器id /bin/bash  进入容器，开启一个新的终端控制
+    或者 docker attach 容器id，但是会进入正在输出的命令行（执行代码中）
+    docker ps [参数]    查看正在运行的容器
+        -a 查看正在和历史容器
+        -q 只显示容器编号
+    docker rm 容器id 删除容器
+    docker start 容器id 启动容器
+    docker restart 容器id   重启容器
+    docker stop 容器id  停止容器
+    docker kill 容器id  强制停止容器
+
+    dock logs -tf 容器id 显示该容器所有日志
+    dock logs -tf --tail n 容器id 显示n条日志
+
+    docker top 容器id 查看容器内的进程
+    docker inspect 容器id 查看容器元数据
+
+    docker cp 容器id:容器内文件路径 主机路径 复制容器内文件到本机
