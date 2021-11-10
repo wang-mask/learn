@@ -61,3 +61,12 @@
     docker inspect 容器id 查看容器元数据
 
     docker cp 容器id:容器内文件路径 主机路径 复制容器内文件到本机
+
+## Docker 部署镜像流程
+    1. docker search 或者官网搜索
+    2. docker pull下载镜像到本地
+    3. docker run 启动容器
+
+## 可视化 portainer
+    docker run -d -p 9000:9000 --restart=always -v /var/run/docker.sock:/var/run/docker.sock --name prtainer-test portainer/portainer
+    然后进去localhost:9000即可管理docker
