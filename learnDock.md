@@ -44,6 +44,7 @@
             -p 容器端口
         -v 本地目录:容器目录挂载卷
         -e key:value 配置环境
+        run后不加-的命令就是追加到新建的容器内运行，如bin/bash命令
     exit 退出容器，并停止该容器
     ctrl + p + q 退出容器，但容器继续运行
     docker exec -it 容器id /bin/bash  进入容器，开启一个新的终端控制
@@ -97,4 +98,19 @@
     启动需要同步的镜像时 run 加参数 --volume-form 上一个容器名
     这两个容器就有同名数据卷，各个容器内的卷互为备份，但是内容实时同步，并不会应为一个删除了，另一个就不存在了
 ## Dockerfile
-    用来构建镜像的文件，构建脚本命令
+    用来构建镜像的文件，构建命令脚本
+    然后使用build构建镜像，run --> push 
+    Dockerfile中指令都是大写，每个指令就是镜像的一层
+    命令：
+    FROM 镜像名      #基础镜像
+    MAINTAINER 姓名+邮箱    # 镜像是谁写的
+    RUN     #镜像构造时需运行的命令，添加一些命令yum等
+    ADD     # 向基础镜像添加内容（层）,如jdk什么的
+    WORKDIR     # 镜像的工作目录，即启动镜像运行时进入的目录，不配置的话默认是根目录
+    VOLUME     # 挂载的目录
+    ESXPOSE     # 暴露端口
+    CMD      # 指定容器启动时要运行的命令
+    ENV     # 设置环境变量
+
+    然后docker build -f dockerfilename -t 镜像名:tag .
+    docker history 镜像名 查看镜像的构造过程，即dockerfile过程
