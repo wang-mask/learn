@@ -8,6 +8,7 @@
 * add为提交到暂存区，commit为将暂存区所有内容提交到分支
 * 修复分支命名fix-----，新功能分支feature-----
 * 远程仓库默认名称为origin
+* 工作目录 -> 暂存区 -> 本地仓库 -> 远程仓库
   
 ## 2. 创建本地仓库
     git init（在你想要的文件夹下）
@@ -112,4 +113,8 @@
         [ab].php
 
 ## 18. git配置文件
+    git config
+        --global
+        --system
+    设置 git config --global user.name "aaaa"
     当前用户的Git配置文件放在用户主目录下的一个隐藏文件.gitconfig中

@@ -44,6 +44,8 @@
             -p 容器端口
         -v 本地目录:容器目录挂载卷
         -e key:value 配置环境
+        --link 另一个容器名 将另一个容器名写到host中
+        --net 网络名  所属网络
         run后不加-的命令就是追加到新建的容器内运行，如bin/bash命令
     exit 退出容器，并停止该容器
     ctrl + p + q 退出容器，但容器继续运行
@@ -99,18 +101,57 @@
     这两个容器就有同名数据卷，各个容器内的卷互为备份，但是内容实时同步，并不会应为一个删除了，另一个就不存在了
 ## Dockerfile
     用来构建镜像的文件，构建命令脚本
+    官方命名Dockerfile，build时就不用指定文件了 
     然后使用build构建镜像，run --> push 
     Dockerfile中指令都是大写，每个指令就是镜像的一层
     命令：
     FROM 镜像名      #基础镜像
     MAINTAINER 姓名+邮箱    # 镜像是谁写的
     RUN     #镜像构造时需运行的命令，添加一些命令yum等
-    ADD     # 向基础镜像添加内容（层）,如jdk什么的
+    ADD  文件名（主机上的） 镜像内的路径  # 向基础镜像添加内容（层）,如jdk什么的，压缩包的形式，会自动解压
     WORKDIR     # 镜像的工作目录，即启动镜像运行时进入的目录，不配置的话默认是根目录
     VOLUME     # 挂载的目录
     ESXPOSE     # 暴露端口
-    CMD      # 指定容器启动时要运行的命令
+    CMD      # 指定容器启动时要运行的命令，可以用&&添加多条命令一起执行
     ENV     # 设置环境变量
+    COPY 本机文件 镜像内的目录
 
     然后docker build -f dockerfilename -t 镜像名:tag .
     docker history 镜像名 查看镜像的构造过程，即dockerfile过程
+
+    Dockerfile示例：
+    FROM centos
+    MAINTAINER wangwenxiao<724802019@qq.com>
+    COPY readme.txt /usr/local/readme.txt
+
+    ADD jdk-8u144-linux-x64.tar.gz /usr/local/
+
+    RUN yum -y install vim
+    ENV MYPATH /usr/local
+    WORKDIR $MYPATH
+
+    ENV JAVA_HOME $MYPATH/jdk1.8.0_144
+    ENV CLASSPATH $JAVA_HOME/lib;$JAVA_HOME/jre/lib
+    ENV PATH $PATH:$JAVA_HOME/bin
+
+# 发布自己的镜像
+    docker login -u 用户名 -p 密码 
+    docker push 用户名/镜像名:tag
+
+# Docker 网络
+    ip addr 查看本机ip
+    安装docker，就会为docker分配一个网卡docker0，相当于docker的路由器，将网络转发到各个dicker内部
+    每启动一个docker就会分配一个ip
+    各个docker之间是可以互相ping通的
+
+# --link
+    run 的时候加上 --link 要连接的另一个容器名，但这样只能是单向的，把另一个的容器名写到host中
+    这样就可以这些link后的 就可以通过容器名连通了
+
+# 自定义网络
+    docker network ls   查看所有的网络
+    docker network create --drive 网络模式 --subnet 网络/网络段（子网写法，表明网络号） --gateway 网关 网络名
+    docker run 的时候指定网络即可 --net 网络名
+    自定义网络下各个容器可以使用docker名互相连接
+    docker network connect network名称 容器名 用于将一个容器再挂载到另一个网络下，使其可以通过容器名连通（即一个容器有多个ip），一个容器需要跨网络操作时才使用
+    
