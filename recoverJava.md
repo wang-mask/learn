@@ -130,3 +130,138 @@
       OutputStream f = new FileOutputStream("C:/java/hello")
       File f = new File("C:/java/hello");
       OutputStream fOut = new FileOutputStream(f);
+
+## 刷题常用 API
+### 输入输出
+    输入：
+    Scanner sc = new Scanner(System.in);
+    String s = sc.next();//字符串
+    double t = sc.nextDouble(); //浮点数
+    String s = sc.nextLine();//一行
+
+    判断是否有下一个输入，用sc.hasNext()或sc.hasNextInt()或sc.hasNextDouble()或sc.hasNextLine()
+    //循环输入整数 nextType可以指定读取的类型
+    while(in.hasNextInt()){
+      int n = sc.nextInt();
+    }
+    //循环输入字符
+    while(in.hasNext()){
+    }
+    注意，如果使用nextInt()或next()之后，要用nextLine()，需手动调用.nextLine()吸收掉回车符或空格。
+
+    while (!in.hasNext("0")) {  // 以0作为结尾跳出
+      System.out.println(in.next());
+    }
+
+    输出：
+    System.out.println(); 
+    System.out.printf();  
+
+### 最小最大值
+    imax = Integer.MAX_VALUE;
+    imin = Integer.MIN_VALUE;
+    lmax = Long.MAX_VALUE;
+    lmin = Long.MIN_VALUE;
+    fmax = Float.MAX_VALUE;
+    fmin = Float.MIN_VALUE;
+    dmax = Double.MAX_VALUE;
+    dmin = Double.MIN_VALUE;
+    bmax = Byte.MAX_VALUE;
+    bmin = Byte.MIN_VALUE;
+    cmax = Character.MAX_VALUE;
+    cmin = Character.MIN_VALUE;
+    shmax = Short.MAX_VALUE;
+    shmin = Short.MIN_VALUE;
+    
+### string 字符串
+    s.toCharArray(); 字符串转字符数组
+    .charAt()
+    .length()
+    .substring(start, end) 左闭右开，不传end默认到结尾
+    .equal(str2)   基于内容的比较
+    .indexOf(str) 返回第一次出现的下标，类似的还有lastIndexOf()
+    .replace(old, new)
+    .split()
+    .toLowerCase()  // .toUpperCase()
+
+    Stringbuilder
+    StringBuilder sb = StringBuilder(String str);
+    .append(str)
+    .setCharAt(int index, char ch);    // 设置index位置的char为ch --- O(1)
+    .insert(int offset, String str);    // 在offer位置的插入字符串str--- O(m + n)
+    .delete(int start, int end);    // 删除[start, end)位置的char --- O(n)
+    .reverse();    // 反转缓存字符串 --- O(n)
+    .toString();    // 返回一个与构建起或缓冲器内容相同的字符串 --- O(n)
+    .idnexOf(str)
+
+### 集合 map
+    Map<String, String> map = new HashMap<String, String>(); 
+    map.put("1", "a"); 
+    遍历：
+      Map.Entry<String, String> entry : map.entrySet()
+      Character key : map.keySet()
+      Integer value : map.values()
+    map.get(key)
+    map.size();
+    map.isEmpty()
+    containsKey(), containsValue()
+
+### queue
+    Queue<Integer> q = new LinkedBlockingQueue<Integer>(); //初始化
+    q.offer(value)  入队
+    q.peek()      访问队首元素
+    q.poll()    出队
+    遍历： Integer x : q
+
+### stack 
+    Stack<Integer> s = new Stack<Integer>();//初始化
+    s.push()
+    s.pop()
+    s.peek()
+    s.isEmpty()
+    s.size()
+
+### set
+    Set<Integer> set = new HashSet<>();
+    add, remove, contains, isEmpty, size
+
+### 优先队列 PriorityQueue (Heap)
+    //小根堆
+    Queue<Integer> minH = new PriorityQueue<>();    // 小根堆，默认大小为11
+
+    //大根堆
+    Queue<Integer> maxH = new PriorityQueue<>((i1, i2) -> i2 - i1);
+    方法与queue类似
+
+### 数组
+    s.length
+    Arrays.sort(int[] arr)	//从小到大排序
+    Arrays.fill(a, 1);
+    Arrays.sort(arr, (o1, o2) -> o2 - o1); //数组全部 从大到小排序 跟Collections.sort()一样
+    arr1.equals(arr2)比较的是两个对象的地址，不是里面的数，而Arrays.equals重写了equals，所以，这里能比较元素是否相等。
+
+
+### 动态数组
+    List<Integer> array = new ArrayList<>();    // 数组
+    List<Integer> list = new LinkedList<>();    // 链表
+    List<List<Integer>> = new ArrayList<>();	//二维数组
+
+    .get(int index)
+    .size()
+    .add(int index, E e)    // 在index位置插一个元素e --- O(n)
+    .remove(int index)    // 删除位于index的元素，并返回删除元素e
+    .subList(int from, int to)    // 相当于返回原数组的一个片段,但不要对其进行改动，改动会影响原数组
+    Collections.sort(list); 从小到大排序
+    Collections.sort(list, (o1, o2) -> o2 - o1); 从大到小排序， 第二个参数为一个比较器
+
+### Math
+    Math.max(long a, long b)
+    Math.sqrt(double a)
+    Math.abs(double a) //返回一个类型和参数类型一致的绝对值
+    Math.pow(double a, double b)
+    Math.ceil(double x);//向上取整
+    Math.floor(double x);//向下取整
+    Math.round(double x);//四舍五入
+    Math.random()
+    int a = (int)(Math.random()*b + 1); // [1, b]
+    int a = (int)(Math.random()*(b - a + 1) + a);	//[a, b]
