@@ -92,8 +92,41 @@
     其他方法大致跟String一致
   
 ## 数组
+    声明：ArrayType[] name = new ArrayType[size],ArrayType[] name = {}
+    属性：.length
     方法：
     Arrays.fill(arr, value)
     Arrays.sort(arr)
     Arrays.equals(arr1, arr2)
-    
+    数组作为参数
+    public static void printArray(int[] array)
+
+## 可变参数
+    typeName... parameterName
+    public static void printMax( double... numbers) {}
+    访问 numbers 就是一个可变数组
+
+## IO
+    输入流表示从一个源读取数据，输出流表示向一个目标写数据。
+    读取单个字符：
+      // 使用 System.in 创建 BufferedReader
+      BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+      // 读取字符
+      do {
+          c = (char) br.read();
+      } while (c != 'q');
+
+      读取字符串：
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        do {
+            str = br.readLine();
+        } while (!str.equals("end"));
+      
+      文件操作：
+      InputStream f = new FileInputStream("C:/java/hello");
+      File f = new File("C:/java/hello");
+      InputStream in = new FileInputStream(f);
+
+      OutputStream f = new FileOutputStream("C:/java/hello")
+      File f = new File("C:/java/hello");
+      OutputStream fOut = new FileOutputStream(f);
