@@ -72,7 +72,7 @@
     indexOf(),返回匹配到的第一个的索引
     replace(oldstr, newstr) 替换操作，返回新串
     split()
-    subString(int beginIndex, int endIndex) 获取子串
+    substring(int beginIndex, int endIndex) 获取子串
     toLowerCase(),toUpperCase()
     contains(CharSequence chars)
     isEmpty()
@@ -185,7 +185,7 @@
     .toLowerCase()  // .toUpperCase()
 
     Stringbuilder
-    StringBuilder sb = StringBuilder(String str);
+    StringBuilder sb = new StringBuilder(String str);
     .append(str)
     .setCharAt(int index, char ch);    // 设置index位置的char为ch --- O(1)
     .insert(int offset, String str);    // 在offer位置的插入字符串str--- O(m + n)
@@ -193,6 +193,8 @@
     .reverse();    // 反转缓存字符串 --- O(n)
     .toString();    // 返回一个与构建起或缓冲器内容相同的字符串 --- O(n)
     .idnexOf(str)
+    .charAt()
+    String 的大部分方法都支持
 
 ### 集合 map
     Map<String, String> map = new HashMap<String, String>(); 
@@ -242,12 +244,14 @@
 
 
 ### 动态数组
+    List类型只支持对象，包装类
     List<Integer> array = new ArrayList<>();    // 数组
     List<Integer> list = new LinkedList<>();    // 链表
     List<List<Integer>> = new ArrayList<>();	//二维数组
 
     .get(int index)
     .size()
+    .set(index, value)
     .add(int index, E e)    // 在index位置插一个元素e --- O(n)
     .remove(int index)    // 删除位于index的元素，并返回删除元素e
     .subList(int from, int to)    // 相当于返回原数组的一个片段,但不要对其进行改动，改动会影响原数组
