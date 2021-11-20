@@ -184,7 +184,7 @@
     .split()
     .toLowerCase()  // .toUpperCase()
 
-    Stringbuilder
+### Stringbuilder
     StringBuilder sb = new StringBuilder(String str);
     .append(str)
     .setCharAt(int index, char ch);    // 设置index位置的char为ch --- O(1)
@@ -248,12 +248,12 @@
     List<Integer> array = new ArrayList<>();    // 数组
     List<Integer> list = new LinkedList<>();    // 链表
     List<List<Integer>> = new ArrayList<>();	//二维数组
-
+    Arrays.asList(new String[]{"p", "q", "r", "s"})
     .get(int index)
     .size()
     .set(index, value)
     .add(int index, E e)    // 在index位置插一个元素e --- O(n)
-    .remove(int index)    // 删除位于index的元素，并返回删除元素e
+    .delete(start, end)     // 左闭右开
     .subList(int from, int to)    // 相当于返回原数组的一个片段,但不要对其进行改动，改动会影响原数组
     Collections.sort(list); 从小到大排序
     Collections.sort(list, (o1, o2) -> o2 - o1); 从大到小排序， 第二个参数为一个比较器
