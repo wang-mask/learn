@@ -368,3 +368,167 @@
     准备好pod后，现在可以尝试执行DNS查找以查看是否获得了实际的podIP
     查询该服务的dns即可返回该服务所拥有的pod的ip
 
+## 卷：将主机磁盘挂载到容器
+    即容器共享主机某一部分文件系统，从而实现各个容器之间的文件共享
+### emptyDir 卷
+    卷从一个 空 目录开始，运行在 pod 内的应用程序可以写入它 需要 的任何文件 。因为卷的生存周期与 pod 的生存周期相 关联 ，所以 当删除 pod 时， 卷的内容就会丢失 。
+    apiVersion: v1 
+    kind: Pod 
+    metadata:
+        name: fortune
+    spec:
+        containers:
+        - image: luksa/fortune
+          name: html-generator 
+          volumeMounts:  # 挂载卷
+          - name: html  # 卷名称
+            mountPath: /var/htdocs  # 挂载到该容器的哪个文件夹
+        - image: nginx:alpine
+          name: web-server
+          volumeMounts:
+          - name: html
+            mountPath: /usr/share/nginx/html
+            readOnly: true
+        volumes:   # 卷声明
+        - name: html    # 卷名称
+          emptyDir: {}  # 空卷挂在到两个容器上
+    为卷来使用的 emptyDir，是在 承载 pod 的 工作节点的实际磁盘上创建的， 因 此其性能取 决于节点的磁盘类型。
+
+### gitRepo 卷
+    gitRepo 卷基本上也是 一 个 emptyDir 卷，它通过克隆 Git 仓库并在 pod 启 动时(但在创建容器之前 )检出特定版本来填充数据，即在pod启动时将git仓库内容填充到空卷里面
+    但是启动后并不会同步更新卷中内容与远程仓库一致
+    volumes: 
+    - name: html
+      gitPepo:          # 设置远程仓库
+        repository: https: //github.com/luksa/kubia-website-example.git # 仓库地址
+        revision: master    # 分支名称
+        directory: .        # 挂载到卷的根目录
+
+### hostPath卷
+    hostPath 卷指向节点文件系统上的特定文件或目录(请参见图 6.4)。 在同一 个节点上运行并在其 hostPath 卷中使用相同路径的 pod 可以看到相同的文件。即将主机某个文件夹挂在容器当中
+    实现持久性存储
+    hostPath 卷通常用于尝试单节点集群中的持久化存储，譬如 Minikube 创建的集群。
+
+### 跨节点的持久化存储 pv
+    研发人员无须向他们的 pod 中添加特定技术的卷， 而是由集群管理员设置底层 存储， 然后通过 Kubernetes API 服务器创建持久卷并注册。 在创建持久卷时， 管理 员可以指定其大小和所支持的访问模式。
+    当集群用户需要在其 pod 中使用持久化存储时， 他们首先创建持久卷声明 (PersistentVolumeClaim, 简称 PVC) 清单， 指定所需要的最低容量要求和访问模式， 然后用户将待久卷声明清单提交给 Kubernetes API 服务器， Kubernetes 将找到可匹 配的待久卷并将其绑定到持久卷声明。
+    创建持久卷：
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+        name: mongodb-pv 
+    spec:
+        capacity:
+            storage: 1Gi    # 持久存储的大小
+        accessModes:        
+        - ReadWriteOnce     # 可以被单个客户端挂载为读写模式
+        - ReadOnlyMany      # 可以被多个客户端挂载为只读模式
+        persistentVolumeReclaimPolicy: Retain   # 当声明被释放后，持久存储将会保留
+        gcePersistentDisk:   # 指定持久卷支持的实际存储类型
+            pdName: mongodb
+            fsType: ext4
+    
+    创建持久卷声明来获取持久卷 pvc
+    创建持久卷后不能在pod中直接使用，而先要声明它
+    创建持久卷声明
+    apiVersion: v1
+    kind: PersistentVolumeClaim 
+    metadata:
+        name: mongodb-pvc       # 挂载到pod上使用的名称
+     spec:
+        resources: 
+            requests:
+                storage: 1Gi    # 申请1GiB的存储空间
+        accessModes:
+        - ReadWriteOnce         # 允许单个客户端读写访问
+        storageClassName: ""    # 
+    当 创 建好声明， Kubernetes 就会找到适当的持久卷并将其绑定到声明 ，持 久卷 的容量必须足够大以满足声明的需求，并且卷 的访 问模式必须包含声明中指定的访 问模式 。
+
+    在pod中使用持久卷
+    apiVersion: v1
+    kind: Pod 
+    metadata:
+        name: mongodb 
+    spec:
+        containers:
+        - image: mongo
+        name: mongodb 
+        volumeMounts:
+        - name : mongodb-data 
+            mountPath: / data/ db
+        ports:
+        - containerPort: 27017
+            protocol: TCP
+        volumes:
+        - name: mongodb-data 
+        persistentVolumeClaim:
+            claimName: mongodb-pvc  # 引用持久券声明
+    
+    于动回收持久卷并 使其恢复可用的唯一方法是删除和重新创建持久卷资源。 
+
+# ConfigMap 和 Secret：配置应用程序
+    尽管可以直接使用CMD指令指定镜像运行时想要执行的命令， 正确的做法依旧 是借助ENTRYPOINT指令， 仅仅用CMD指定所需的默认参数。
+## 为容器定义命令和参数
+    dockerfile中：
+    ENTRYPOINT ["/bin/for七uneloop.sh"] # 命令
+    CMD ["10"]  # 参数
+    在 Kubemetes 中定义容器时， 镜像的 ENTRYPOINT 和 CMD 均可以被覆盖， 仅需在容器定义中设置属性 command 和 args 的值， 
+    containers:
+    - image: some/image
+      command: ["/bin/command"] 
+      args: ["arg1", "arg2", "arg3"]
+      字符串值无须用引号标记，数值需要。
+
+## 为容器设置环境变量
+    kind: Pod
+    spec:
+        containers:
+        - image: luksa/fortune:env
+          env:
+          - name: INTERVAL 
+            value: "30"
+          name: html-generator
+    采用$(VAR)来引用其他环境变量
+    env·
+    - name : FIRST_VAR
+      value:"foo" 
+    - name : SECOND_VAR
+        value:”$(F工RST VAR)bar”
+## ConfigMap
+    用以存储配置 数据的Kubernetes资源称为ConfigMap
+    Kubemetes 允 许将配置选项分离到单独的资源对象 ConfigMap 中， 本质上就是 一个键 /值对映射，值可以是短字面量，也可以是完整的配置文件。
+    将配置文件跟从pod定义中牵出，解耦
+    pod 是通过名称引用 ConfigMap 的，因此可以在多环境下使用相同的 pod 定义描述，同 时保持不同的配 置值 以适应不同环境
+    创建：
+    kubectl create configmap fortune-config --from-literal=foo=bar --from-literal=bar=baz --from-literal=one=two
+    通过这条命令创建了 一 个叫作 fortune一config 的 ConfigMap，包含单映射 条目 foo=bar、bar=baz、one=two
+    
+    kubectl create configmap my-config --from-file=config-file.conf
+    kubectl 会在当前目录下查找 config-file . conf 文件，并将 文件内容存储在 ConfigMap 中以 config-file.conf 为键名的条目下 。
+
+    给容器传递ConfigMap 条目作为环境变量
+    apiVersion: v1
+    kind: Pod 
+    metadata:
+        name: fortune-env-from-configmap 
+    spec:
+        containers:
+        - image : luksa/fortune:env 
+          env :             # 设置环境变量
+          - name : INTERVAL # 变量名
+            valueFrom: 
+                configMapKeyRef:    # 用configMap初始化
+                    name: fortune-config # 引用哪个configMap
+                    key: sleep-interval # 对应configMap中的哪个key的value
+    
+    将configMap中所有条目映射到容器的环境变量中
+    spec:
+        containers:
+        - image: some-image
+          envFrom:          # 使用envFrom字段
+          - prefix: CONFIG_     # 所有环境变量均含前缀CONFIG_，即原本的kay再加上这个前缀
+            configMapRef:       # 引用哪个configMap
+                name: my-config-map
+
+
+
