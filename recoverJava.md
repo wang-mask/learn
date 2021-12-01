@@ -174,6 +174,7 @@
     shmin = Short.MIN_VALUE;
     
 ### string 字符串
+    String.valueOf(ch)  char数组转string
     s.toCharArray(); 字符串转字符数组
     .charAt()
     .length()
@@ -207,6 +208,7 @@
     map.size();
     map.isEmpty()
     containsKey(), containsValue()
+    map.values() 返回value的迭代器
 
 ### queue
     Queue<Integer> q = new LinkedBlockingQueue<Integer>(); //初始化
@@ -249,11 +251,11 @@
     List<Integer> list = new LinkedList<>();    // 链表
     List<List<Integer>> = new ArrayList<>();	//二维数组
     Arrays.asList(new String[]{"p", "q", "r", "s"})
-    .get(int index)
+    .get(int index)   只能用get访问，不能使用[index]访问
     .size()
     .set(index, value)
     .add(int index, E e)    // 在index位置插一个元素e --- O(n)
-    .delete(start, end)     // 左闭右开
+    .remove(index)      // 删除index的元素
     .subList(int from, int to)    // 相当于返回原数组的一个片段,但不要对其进行改动，改动会影响原数组
     Collections.sort(list); 从小到大排序
     Collections.sort(list, (o1, o2) -> o2 - o1); 从大到小排序， 第二个参数为一个比较器

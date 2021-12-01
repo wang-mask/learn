@@ -33,6 +33,7 @@
     kubectl run kubia --image=luksa/kubia --port=8080 运行
     kubectl get 资源名称 查看资源pods、replicationcontrollers（rc）、services，rs,ds，jobs,svc
     kubectl get pods -o wide 显示详细信息 
+    kubectl get pods name -o yaml       # 以yaml文件的形式显示
     
     kubectl describe 资源类型 资源名称 显示细节，比get更多的细节
     kubectl expose re kubia --type=LoadBalancer --name kubia-http 创建服务
@@ -44,6 +45,11 @@
     kubectl port-forward podName 本机端口:pod端口 将本地端口映射到pod端口
     
     kubectl exec podname -- command # 在该pod内执行命令
+    kubect1 exec podname env  查看pod的环境变量 
+
+    kubectl exec -it podname -c 容器名 bash # 进入pod中的某个容器
+
+    kubectl describe nodes
 ### 运行停止pod
     kubectl delete pods podname 停止pod
     kubectl delete po -1 creation method=manual
@@ -67,6 +73,26 @@
     kubectl scale rc rcname --replicas=n  # 更改rc所控制的副本数量
 ### 服务相关 svc
     kubectl expose 
+
+### 升级
+    kubectl rolling-update kubia-v1 kubia-v2 --image=luksa/kubia:v2  # 将原来名为kubia-v1的rc替换为kubia-v2，并使用luksa/kubia:v2作为新的镜像
+
+### Deployment
+    kubectl create -f kubia-deploymen七vl.yaml --record  # 使用了 --record 选项。 这个选项会记录历史版本号
+    kubectl get deployment name
+    kubectl describe de­ployment name
+    kubectl rollout status deployment name # 专门用于查看部署状态
+    kubectl set image deployment dep名称 容器名称=新镜像名 # 更新deployment的镜像
+    kubectl rollout undo deployment name  # 回滚到上一个版本
+    kubectl rollout history deployment name # 显示升级回滚历史
+    kubectl rollout pause deployment name  # 暂停更新
+    kubectl rollout resume deployment name # 恢复更新
+## 修改资源
+    kubectl edit deployment name   # 直接进入文本编辑模式
+    kubectl patch deployment kubia -p'{"spec": {"template": {"spec": {"containers": [ {"name": "nodejs", "image": "luksa/kubia:v2"}]}}}}'  # 修改耽搁资源属性
+    kubectl apply -f kubia-deployment-v2.yaml # 通过一 个完整的YAML或JSON文件，应用其中新的值来修改对象。如果YAML/JSON中指定的对象不存在，则会被创建。
+    kubectl replace -f kubia-deployment一v2.yaml  # 将原有对象替换为YAML/JSON文件中定义的新对象。与apply命令相反， 运行这个命令前要求对象必须存在，否则会打印错误
+    kubectl set image deployment kubia nodejs=luksa/kubia:v2 # 修改Pod、ReplicationController、Deployment、DernonSet、Job或ReplicaSet内的镜像
     
 # 资源
 ## POD
@@ -529,6 +555,388 @@
           - prefix: CONFIG_     # 所有环境变量均含前缀CONFIG_，即原本的kay再加上这个前缀
             configMapRef:       # 引用哪个configMap
                 name: my-config-map
+    Linux 系统挂载文件系统至非空文件夹时通常表现如此。文件夹中只会包含被 挂载文件系统中的文件 ，即便文件夹中原本的文件是不可访问的也是同样如此。
 
+    如果想挂载卷，而又不是将主机整个文件夹挂载过去（会隐藏容器内的文件夹）可以使用subPath属性
+    spec:
+        containers:
+        - image: some/image
+          volumeMounts:
+          - name: myvolume
+            mountPath: /etc/someconfig.conf 
+            subPath: myconfig.conf      # 只挂载主机卷下的myconfig.conf 
+    使用环境变量或者命令行参数作为配置源的弊端在于无法在 进程运行时更新配置。 将ConfigMap暴露为卷可以达到配置热更新的效果， 无须重新创建pdo 或者重启容器。
+    kubectl edit configmap fortune-config 修改configmap会自动同步到configmap对应的卷
 
+# 从应用访问pod元数据以及其他资源
+    在之前的章节中， 我们已经了解到如何通过环境变量或者configMap和 secret卷向应用传递配置数据。 
+    但是对于那些不能预先知道的数据， 比如pod的IP、 主机名或者是pod自身的名称 (当名称被生成， 比如当pod通过ReplicaSet或类似的控制器生成时)呢?
+    Downward API允许我们通过环境变量或者文件(在downwardA釭卷中)的传递pod的元数据。
+    
+    可以给容器传递以下数据:
+    • pod的名称
+    • pod的IP
+    • pod所在的命名空间
+    • pod运行节点的名称
+    • pod运行所归属的服务账户的名称
+    • 每个容器请求的CPU和内存的使用量
+    • 每个容器可以使用的CPU和内存的限制
+    • pod的标签
+    • pod的注解
 
+## 通过环境变量暴露元数据
+    env:
+    - name: POD_NAME 
+      valueFrom:
+            fieldRef:
+                fieldPath: metadata.name # 引用metadata.nam
+    - name: CONTAINER_CPU_REQUEST_MILLICORES
+      valueFrom:
+        resourceFieldRef:       # 容器的cpu的内存使用量的引用是resourceFieldRef字段
+            resource: requests.cpu
+            divisor: 1m # 基数单位
+
+## 通过downwardAPI卷来传递元数据
+    apiVersion: v1 
+    kind: Pod 
+    metadata:
+        name: downward 
+        labels:
+            foo: bar
+        annotations: 
+            key1: value1 
+            key2:
+                multi
+                line
+                value
+    volumes:
+    - name: downward 
+      downwardAPI:
+      items:
+      - path: "podName"         # 放在容器内挂载卷的padName文件中
+        fieldRef:           # pod的名称被写入padName文件中
+            fieldPath: metadata.name
+      - path: "containerMemoryLimitBytes" # 引用容器中的数据
+        resourceFieldRef: 
+            containerName: main 
+            resource: limits.memory 
+            divisor: 1
+            
+    定义了 一 个叫作 downward 的卷，并且通过/etc/downward目录挂载到我们的容器中，卷所包含的文件会通过卷定义中的downwardAPI.items属性来定义
+    要在文件中保存的每一 个 pod 级的字段或者容器资源字段， 都分别在downwardAPI. 江ems 中说明了元数据被保存和引用的 path( 文件名)，
+    文件的内容就是元数据字 段和值
+
+## 与 Kubernetes API 服务器交互
+    解决要知道其他 pod 的 信息， 甚至是集群中其他资源的信息问题。
+    要实现pod与Kubernetes API 服务器交互
+    • 确定API服务器的位置
+    • 确保是与API服务器进行交互，而不是一个冒名者
+    • 通过服务器的认证，否则将不能查看 任何内容以及进行任何操作
+
+    获取api服务器位置：
+    在容器内运行：env ｜ grep KUBERNETES_SERVICE，会显示api服务器的ip地址和端口，因为默认会运行一个服务，pod创建是该服务将会写入pod的环境变量
+    也可以简单的指向 https://kubernetes 就是api服务器的地址
+    配置访问证书，将证书配置为环境变量
+    export CURL_CA_BUNDLE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    配置证书后仍然没办法授权允许访问
+
+    获得api服务器授权：
+    # 指向内部 API 服务器的主机名
+    APISERVER=https://kubernetes.default.svc
+    # 服务账号令牌的路径
+    SERVICEACCOUNT=/var/run/secrets/kubernetes.io/serviceaccount
+    # 读取 Pod 的名字空间
+    NAMESPACE=$(cat ${SERVICEACCOUNT}/namespace)
+    # 读取服务账号的持有者令牌
+    TOKEN=$(cat ${SERVICEACCOUNT}/token)
+    # 引用内部证书机构（CA）
+    CACERT=${SERVICEACCOUNT}/ca.crt
+    # 使用令牌访问 API
+    curl --cacert ${CACERT} --header "Authorization: Bearer ${TOKEN}" -X GET ${APISERVER}/api
+    访问api加上各个参数就能对部分对象进行修改
+
+## ambassador 容器简化与 API 服务器的交互
+    如果一个应用需要查询API服务器(此外还有其他原因)。 除了 像之前章节讲到的直接与API服务器交互， 可以在主容器运行的同时， 启动 一个 ambassador容器，并在其中运行kubecctl proxy命令， 通过它来实现与API服务器的交互。
+    在这种模式下， 运行在主容器中的应用不是直接与API服务器进行交互， 而是 通过HTTP协议(不是HTTPS协议)与ambassador连接， 并且由ambassador通过 HTTPS协议来连接API服务器， 对应用透明地来处理安全问题。式同样使用了默认凭证Seeret卷中的文件。
+    spec:
+        containers:
+        - name: main
+          image: tu七um/curl
+          command: ["sleep", "9999999"] 
+        - name: ambassador      # 基于kubectl-proxy的 ambassador
+          image: luksa/kubectl-proxy:l.6.2
+    这样在mian容器中就可以直接curl localhost:8001 而无需配置
+## 访问api服务器的编程库
+    • Galang client—https://github.com/kubemetes/client-go
+    • Python—https://github.com/kubemetes-incubator/client-python
+
+# Deployment 声明式地升级应用
+    Kubemetes 提供 了另一种基于 ReplicaSet 的 资源 Deployment， 并支持声明式地更新应用程序 
+    使用 ReplicationController实现自动的滚动升级
+    一个yaml可以创建多个资源 使用---分隔不同资源
+    apiVersion: v1
+    kind: Replicationcontroller 
+    metadata:
+        name: kubia-v1
+    spec:
+        replicas: 3
+        template:
+            metadata: 
+                name: kubia 
+                labels:
+                    app: kubia
+            spec:
+                containers:
+                - image: kuksa/kubia:v1
+                  name: nodejs
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+        name: kubia-v1
+    spec:
+        type: LoadBalancer 
+        selector:
+            app: kubia
+        ports:
+        - port: 80
+          targetPort: 8080
+    Deployment 是一 种更高阶资源， 用千部署应用程序并以声明的方式升级应用， 而不是通过 ReplicationController 或 ReplicaSet 进行部署， 它们都被认为是更底层的 概念。
+    在使用Deployment时，实际的pod 是由 Deployment 的 Replicaset 创建和管理的， 而不是由 Deployment 直接创建和管 理的
+
+    创建：
+    apiVersion: apps/v1beta1
+    kind: Deployment 
+    metadata:
+        name: kubia 
+    spec:
+        replicas: 3 
+        template:
+            metadata: 
+                name: kubia 
+                labels:
+                    app: kubia 
+            spec:
+                containers:
+                - image: luksa/kubia:v1
+                  name: nodejs
+    升级应用只需修改deployment的yaml文件即可，
+    kubectl set image deployment kubia nodejs=luksa/kubia:v2
+    每次升级就会创建新的ReplicaSet，并留下旧的ReplicaSet，将pod逐步从旧的ReplicaSet转移到新的ReplicaSet
+    还记得第一次修改 Deployment时留下的 ReplicaSet吗?这个 ReplicaSet便表示 Deployment 的第一次修改版本 。 由 Deployment创建的所有 ReplicaSet表示完整的修 改版本历史，如图 9.1l 所示 。每个 ReplicaSet 都用特定的版本号来保存 Deployment 的完整信息，所以不应该手动删除 ReplicaSet。如果这么做便会丢失 Deployment 的 历史版本记录而导致无法回滚 。
+    默认保留两个ReplicaSet，其他更久的会删除
+
+# StatefulSet:部署有状态的多副本应用
+    解决pod中的副本如何有独立的存储卷而不和多个副本共享，即在贡献一个存储卷的情况下如何让每个pod实例都保持自己的持久化状态
+    RelicaSet或ReplicationController管理的pod副本比较像牛， 这 是因为它们都是 无状态的， 任何时候它们都可以被一 个全新的pod替换。 然而有状态的pod需要不 同的方法， 当 一 个有状态的pod挂掉后(或者它所在的节点故障)， 这 个pod实例需要在别的节点上重建， 但是新的实例必须与被替换的 实例拥有相同的名称、 网络 标识和状态。 这 就是Statefu!Set如何管理pod的。
+    Statefulset 保证了pod在重新调度后保留它们的标识和状态。
+    与ReplicaSet 不同的是， Statefulset创建的pod副本并不是完全一样的。 每个pod都可以拥有一 组独立的数据卷(持久化状态)而有所区别。 
+
+    一个Statefulset创建的每个pod都有一个从零开始的顺序索引， 这个会体现在 pod的名称和主机名上，同样还会体现在pod对应的固定存储上。 这些pod的名称 则是可预知的， 因为它是由Statefulset 的名称加该实例的顺序索引值组成的。 
+    当 一个Statefulset管理的一个pod实例消失后(pod所在节点发生故障， 或有 人手动删除pod,) Statefulset会保证重启一个新的pod实例替换它， 但与ReplicaSet 不同的是， 新的pod会拥有与之前pod完全 一 致的名称和主 机名
+    扩容 一个Statefulset会使用下一个还没用到的顺序索引值创建一个新的pod实 例。
+    当缩容一个 Statefulset时\ 比较好的是很明确哪个 pod将要被删除。缩容一个 Statefulset将会最先删除最高索引值 的实例
+
+    因为缩容 Statefulset时会保留持久卷声明， 所以在随后的扩容操作中， 新的 pod 实例会使用绑定在持久卷上的相同声明和其上 的数据(如图 10.9 所示)。当你因为 误操作而缩容一个 Statefulset后，可 以做一次扩容来弥补 自己的过失， 新的 pod实 例会运行到与之前完全一致的状态
+    
+    创建Statefulset实例P296页
+    1，创建持久卷
+    2，创建控制 Service。在部署一个Statefulset之前，需要创建一 个用于在有状态的 pod之间提供网络标识的headlessService。
+    apiVersion: v1
+    kind: Service
+    metadata:
+        name: kubia
+    spec:
+        clusterIP: None 
+        selector:
+            app: kubia 
+        ports:
+        - name: http 
+          port: 80
+    指定了 clusterIP 为 None, 这就标记了它是 一 个 headless Service 。 它 使得你的 pod 之间可以彼此发现(后续会用到这个功能)。 
+    3，创建Statefulset
+    apiVersion: apps/v1beta1 
+    kind: StatefulSet 
+    metadata:
+        name: kubia
+    spec:
+        serviceName: kubia 
+        replicas: 2 
+        template:
+            metadata: 
+                labels:
+                    app: kubia 
+            spec:
+                containers:
+                - name: kubia
+                  image: luksa/kubia-pet 
+                  ports:
+                  - name: http
+                    containerPort: 8080 
+                  volumeMounts:
+                  - name: data
+                    mountPath: /var/data 
+        volumeClaimTemplates:   # 依照这个模版为每一个pod创建一个持久卷声明
+         - metadata:
+          name: data
+          spec:
+            resources: 
+                requests:
+                    storage: 1Mi 
+            accessModes:
+            - ReadWriteOnce
+    访问同一个StatefulSet中的pod实例（访问某个指定的pod），创建一个handless service然后通过api服务器访问，要先创建代理(kubectl proxy)，访问localhost:8001/api/v1/namespaces/default/pods/<podname>/proxy/<path>
+    普通的service只会吧请求随机分配到pod
+
+    通过DNS各个pod实例伙伴间彼此发现通信，使用dns查询srv记录P305页
+
+# 了解Kubernetes机理
+    集群组成：
+    • Kubemetes控制平面
+        - etcd分布式持久化存储
+        - API服务器
+        - 调度器
+        - 控制器管理器
+    • (工作)节点
+        - Kubelet
+        - Kubelet服务代理( kube-proxy)
+        - 容器运行时(Docker、rkt或者其他)
+
+    Kubemetes系统组件间只能通过API服务器通信， 它们之间不会直接通信。
+    尽管工作节点上的组件都需要运行在同一 个节点上， 控制平面的组件可以被简 单地分割在多台服务器上。为了保证高可用性， 控制平面的每个组件可以有多个实 例。
+    KubemeteAs PI服务器作为中心组件， 其 他组件或者客户端 (如kubectl)都 会去调用它。以RESTfulAPI的形式提供了可以查询、修改集群状态的CRUD(Create、
+    Read、 Update、 Delete)接口。 它将状态存储到etcd中。
+
+    调度器 做的就是通过 API 服务器更新 pod 的定义。 然后 API 服务器再去通知 Kubelet(同样， 通过之前描述的监听机制)该 pod 已经被调度过。 当目标节点上的 Kubelet 发现该 pod 被调度到本节点， 它就会创建并且运行 pod 的容器。
+    选择节点操作可以分解为两部分所示:
+    • 过滤所有节点， 找出能分配给 pod 的可用节点列表。
+    • 对可用节点按优先级排序， 找出最优节点。 如果多个节点都有最高的优先级分数， 那么则循环分配，确保平均分配给 pod。
+
+    控制器：API 服务器只做了存储资源到 etcd 和通知客户端有变更的工作。 调度器则只是给 pod 分配节点， 所以需要有活跃的组件确保系统真实状态朝 API 服 务器定义的期望的状态收敛。 这个工作由控制器管理器里的控制器来实现。控制器就是活跃的 Kubernetes组件， 去做具体工作部署资源。总的来说， 控制器执行 一 个 “ 调和 “ 循环， 将实际状态调整为期望状态(在资 源 spec 部分定义)， 然后将新的实际状态写入资源的 s七atus 部分。 
+    控制器更新 API服务器的 一个资源后， Kubelet和 Kubemetes Service Proxy(也 不知道控制器的存在)会做它们的工作 ， 例如启动 pod 容器、加载网络存储，或者 就服务而言 ，创建跨 pod 的负载均衡 。
+
+    Kubelet：
+    Kubelet就是负责所有运行在工作节点上内容的组件。
+    需要持续监控API服 务器是否把该节点分配给 pod， 然后启动 pod 容器 。 具体实现方式是告知配置好的容器运行时’ (Docker、 CoreOS 的 Rkt，或者其他 一 些东西)来从特定容器镜像运行 容器 。 Kubelet 随后持续监控运行的容器，向 API 服务器报告它们的状态、事件和 资源消耗 。
+
+# 保障集群内节点和网络安全
+## 在pod中使用宿主节点
+     spec:
+        containers
+        - image: luksa/ kubia
+          name: kubia
+          ports:
+          - containerPort: 8080
+            hostPort : 9000 
+            protocol : TCP
+    创建这个 pod 之后，可以通过它所在节点的 9000 端口访问这个 pod。 主节点时，并不能通过其他宿主节点的同一端口访问该 podo有多个宿
+
+## 在pod中使用宿主节点的 PID 与 IPC 命名空间
+    spec:
+        hostPID: true
+        hostIPC: true 
+        containers :
+        - name : main
+          image: alpine
+          command: [”/bin/sleep”,” 999999”]
+    pod spec 中的 hostPID 和 hostI PC 选项与 hostNetwork 相似。当它们被设 置为true时， pod中的容器会使用宿主节点的PID和IPC命名空间，分别允许它 们看到宿主机上的全部进程，或通过 IPC机制与它们通信。
+
+# 计算资源管理
+    我们创建 一 个 pod 时， 可以指定容器对 CPU 和内存的资源请求量(即 requests), 以及资源限制量(即Lim心)。 它们并不在 pod 里定义， 而是针对每个容器单独指定。pod 对资源的请求量和限制量是它所包含的所有容器的请求量和限制量之和。
+
+    containers:
+    - image: busybox
+      command: ["dd", "if=/dev/zero", "of=/dev/null"]
+      name: main 
+      resources:        # 为容器定义资源请求量
+        requests:
+            cpu: 200m   # 申请200毫核（1/5核）
+            memory: 10Mi    申请10MB内存
+
+    调度器在调度时只考虑那些未分配资源量满足pod 需求量 的节点。如果节点的 未分配资源量小千pod 需求量，这 时节点没有能力提供pod对资源需求的最小 量，因此Kubemetes不会将该pod调度到这个节点。
+
+    调度器在调度时并不关注各类资源在当前时刻的 实际使用噩，而只关心节点上部署的所有pod 的资源申请量之和。
+
+    调度器首先会 对节点列表进行过滤， 排除那些不满足需求的节点， 然后根据预先配置的优先级函数对其余节点进行排序 。 其
+    中有两个基于资源请求量的优先级排序函数: LeastRequestedPriority和 MostReques七edPriority。 前者优先将pod调度到请求量少的节点上(也就是 拥有更多未分配资源的节点)， 而后者相反， 优先调度到请求量多的节点(拥有更少 未分配资源的节点)。 但是， 正如我们刚刚解释的， 它们都只考虑资源请求量， 而不关注实际使用资源量。
+
+    kubectl describe pods podname #可以查看pod未被调度时的原因
+
+    CPUrequests不仅仅在调度时起作用，它还决定着剩余(未使用) 的CPU时间 如何在pod之间分配。正如图14.2描绘的那样， 因为第一 个pod 请求了200毫核， 另 一 个请求了1000毫核，所以未使用的CPU将按照1:5的比例来划分给这两个 pod。如果两个pod 都全力使用CPU, 第一 个pod 将获得16.7%的CPU时间，另一个将获得83.3%的cpu空间
+    另一方面，如果一个容器能够跑满CPU, 而另一个容器在该时段处于空闲状态， 那么前者将可以使用整个CPU时间(当然会减掉第二个容器消耗的少量时间)
+
+    自定义资源
+    首先要让Kubemetes知道有哪些自定义资源，通过执行HTTP的PATCH请求来完成。然后，创建 pod 时\只要简单地在容器 spec 的 resources . requests 宇段下， 或者像之前例子那样使用带 一 requests 参数的 kubectl run 命令来指定自定 义资源名称和申请 量 ，调度器就可以确保这个 pod 只能部署到满足自定义资源申 请 量 的节点，同时每个 己部署的 pod 会减少节点的这类可分配资源数量 。
+
+## 限制容器可用资源
+    CPU 是一种可压缩资源，意味着我们可 以在不对容器内运行的进程产生不利影 响的 同时，对其使用量进行限制 。 而内存明显不同一一是 一种不可压缩资源。一旦 系统为进程分配了 一 块内存，这块内存在进程主动 释放之前将无法被回收。这就是 我们为什么需要限制容器的最大内存分配量的根本原因。
+    如果不对内存进行限制， 工作节点上的容器(或者pod)可能会吃掉所有可用 内存，会对该节点上所有其他pod和任何新调度上来的pod (记住新调度的pod是 基于内存的申请量而不是实际使用 量的)造成影响。
+    创建：
+    spec:
+        containers:
+        - image: busybox
+          command: ["dd”,”if=/dev/ zero”,”of=/dev/null"] 
+          name: main
+          resources:
+            limits:             # 限制容器的资源使用量
+              cpu: 1
+              memory: 2OMi
+    容器内的进程不允许消耗 超过 1 核 CPU 和 20MB 内存 。
+    与资源 requests 不同的是，资源 limits 不受节点可分配资源量的约束 。 所有 limits 的总和允许超过节点资源总量的 100%
+    如果节点资源使用 量超过 100% ， 一些容器将被杀掉 ， 这是一个很重要的 结果 。
+    对一个进程的 CPU 使用率可以进行限制， 因此当为 一 个容器设置 CPU 限额时，该进程只会分不到比限额更多的 CPU 而己 。
+    而内存却有所不同 。 当进程尝试申请分配比限额更多的内存时会被杀掉(我们 会说这个容器被 OOMKilled 了， OOM 是 Out Of Memory 的缩写〉。 如果 pod 的重 启策略为 Always 或 OnFailure，进程将会立即重启，因此用户可能根本察觉不 到它被杀掉。但是如果它继续超限并被杀死， Kubernetes 会再次尝试重启，并开始 增加下次重启的间隔时间 。 
+
+    在容器内看到的始终是节点的 内存， 而不是容器本身的内存。即使你为容器设置了最 大可用内存的限额， top 命令显示 的是运行该容器的节 点的内存数量 ，而容器无法感知到此限制 。
+    与内存完全 一 样，无论有没有配置 CPU limits， 容器内也会看到节点所有的 CPU。将 CPU 限额配置为 l ，并不会神奇地只为容器 暴露一 个核。 CPU limits 做的 只是限制容器使用的 CPU 时间 。
+
+## pod QoS等级
+    当某个pod突然需要更多资源（和其他pod使用资源之和超过了节点资源总和），那么怎么决定哪些pod能够继续运行呢。
+    Kubernetes 将pod 划分为 3 种 QoS 等级 :
+    • BestEffort (优先级最低) 
+    • Burstable
+    • Guaranteed (优先级最高)
+    QoS 等级来源 于 pod所包含的容器的资源 requests和 limits 的配置 
+    为pod分配等级：
+    • 最低优先级的 QoS 等级是 BestEffort。 会分配给那些没有(为任何容器) 设置任何 requests 和 limits 的 pod。
+    • Guaranteed 等级，会分配给那些所有资源 request 和 limits相等的 pod。 因为如果容器的 资 源 requests 没有显式设置，默认与 limits 相同，所以 只设 置所有资源(pod 内每个容器的每种资源)的限制量就可以使 pod 的 QoS 等级为 Guaranteed。 
+    • Burstable QoS 等 级，其他所有 的 pod都属于这个等级
+    pod的QoS等级同样适用于容器QoS等级
+    对千多容器pod, 如果所有的容器的QoS等级相同， 那么这个等级就是pod的QoS等级。 如果至少有一个容器的QoS等级与其他不同，无论这个容器是什么等级， 这个pod的QoS等级都是Burstable等级。 
+
+    BestEffort等级的pod首先被杀掉， 其次是 Burstable pod, 最后是Guaranteed pod。 Guaranteedpod只有在系统进程需要内存时才会被杀掉。
+
+    对于同优先级的pod，系统通过比 较所有运行进程的OOM分数来选择要杀掉的进程。 当需要释放内存时， 分数最高的进程将被杀死。OOM分数由两个参数计算得出:进程已消耗内存占可用内存的百分比， 与 一 个基千pod QoS等级和容器 内存申请量固定的OOM分数调节因子。
+
+    设置某个命名空间默认的pod或者容器的资源requests和limits可以创建LimitRange资源
+    限制某个命名空间中可用资源的总量，可以创建ResourceQuota对象
+
+    LimitRange应用于单独的pod ; ResourceQuota应用千命名空间中所有的pod
+
+    创建了ResourceQuota后，必须在创建pod是指定相关资源的request和limit量，或者创建LimitRange对象
+
+## 收集、获取实际资源使用情况
+    Kubelet 自身就 包含了一个名为 cAdvisor 的 agent，它会收集整个节点和节点上运行的所有单独容 器的资源消耗情况 。 集中统计整个集群的监控信息需要运行 一个叫作 Heapster 的附 加组件。
+    Heapster 以 pod 的方式运行在某个节点上，它通过普通的 Kubernetes Service 暴 露服务，使外部可以通过一个稳定的 IP 地址访问 。 它从集群中所有的 cAdvisor 收 集数据，然后通过一个单独的地址暴露 。
+    启用Heapster：
+    minikube addons enable heapster
+    kubectl top node   # 显示该节点的cpu和内存使用情况
+    kubectl top pod     # 显示该节点下每个pod的cpu和资源的使用情况
+
+    cAdvisor和Heapster 都只保存一个很短时间窗的资源使用量数据。 如果需要分析一段时间的pod的资 源使用情况， 必须使用额外的工具。如果是本地 Kubemetes 集群，往往使用Influx.DB来存储统计数据， 然后使用 Grafana 对数据进行可视化和分析。（启用Heapster 插件会自动部署上面两个东西）
+
+    kubectl cluster-info # 查找Grafanaweb控制台的URL。
+    使用minikube时， Grafana的web控制台通过NodePort Service暴露， 因此 我们使用以下命令在浏览器中将其打开:
+    minikube service monitoring-grafana -n kube-system
+
+# 自动横向伸缩pod与集群节点
+    Kubemetes可以监控你的pod, 并在检测到CPU使用率或其他度量 增长时自动对它们扩容。
+## 横向自动伸缩
+    横向pod自动伸缩是指由控制器管理的pod副本数量的自动伸缩。 
+    它由 Horizontal控制器执行， 我 们通过创建 一 个HorizontalpodAutoscaler C HPA)资源来启用和配置Horizontal控制器。 该控制器周期性检查pod度量， 计算满足HPA 资源所配置的目标 数 值所 需 的 副本数量， 进而调整目标资源(如Deployment、 ReplicaSet、 ReplicationController、 StatefulSet等)的replicas字段。
+    自动伸缩 的过程可以分为三个步骤:
+    • 获取被伸缩资源对象所管理的所有pod度量。
+    • 计算使度量数值到达(或接近)所指定目标数值所需的pod数量。
+    • 更新被伸缩资源的rep巨cas字段。
+
+    获取度量总量通过前一章的Heapster，基于多个pod度量的自动伸缩(例如: CPU使用率和每秒查询率[QPS])的计 算也并不复杂。 Autoscaler单独计算每个度量的副本数， 然后取最大值(例如:如 果需要4个pod达到目标CPU使用率， 以及需要3个pod来达到目标QPS, 那么Autoscaler 将扩展到4个pod)。当Autoscaler配置为只考虑单个度量时， 计算所需 副本数很简单。 只要将所有pod的度量求和后除以HPA资源上配置的目标值， 再向上取整即可。 
