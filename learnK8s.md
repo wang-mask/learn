@@ -50,6 +50,10 @@
     kubectl exec -it podname -c 容器名 bash # 进入pod中的某个容器
 
     kubectl describe nodes
+
+    kubectl cp foo-pod:/var/log/foo.log foo.log # 将容器文件叫作/var/log/foo.log复制到本机
+
+    kubectl cp localfile foo-pod:/etc/remotefile # 将本地文件复制到容器 
 ### 运行停止pod
     kubectl delete pods podname 停止pod
     kubectl delete po -1 creation method=manual
@@ -929,7 +933,7 @@
     使用minikube时， Grafana的web控制台通过NodePort Service暴露， 因此 我们使用以下命令在浏览器中将其打开:
     minikube service monitoring-grafana -n kube-system
 
-# 自动横向伸缩pod与集群节点
+# 自动横向伸缩pod与集群节点 hpa
     Kubemetes可以监控你的pod, 并在检测到CPU使用率或其他度量 增长时自动对它们扩容。
 ## 横向自动伸缩
     横向pod自动伸缩是指由控制器管理的pod副本数量的自动伸缩。 
@@ -940,3 +944,194 @@
     • 更新被伸缩资源的rep巨cas字段。
 
     获取度量总量通过前一章的Heapster，基于多个pod度量的自动伸缩(例如: CPU使用率和每秒查询率[QPS])的计 算也并不复杂。 Autoscaler单独计算每个度量的副本数， 然后取最大值(例如:如 果需要4个pod达到目标CPU使用率， 以及需要3个pod来达到目标QPS, 那么Autoscaler 将扩展到4个pod)。当Autoscaler配置为只考虑单个度量时， 计算所需 副本数很简单。 只要将所有pod的度量求和后除以HPA资源上配置的目标值， 再向上取整即可。 
+    计算度量cpu用量/cpu请求量
+    就 Autoscaler而言， 只有pod的保证CPU用量(CPU请求)才与确认pod的 CPU使用有关。 Autoscaler对比pod的实际CPU使用与它的请求， 这意味着你需要 给被伸缩的pod设置CPU请求，
+
+    创建HPA（基于cpu自动调整）：
+    kubectl autoscale deployment(资源类型) kubia(资源实例名称) --cpu-percent=30 --min=1 --max=5
+    设置了pod的目标 CPU使用率为30%, 指定了副本的最小和最大数量。
+    一定要确保自动伸缩的目标是 Deployinent 而不是底层的 ReplicaSet。
+
+    kubectl get hpa
+    Autoscaler只会在Deployment上调节预 期的 副 本 数 量。接下来由 Deployment控制器负责更新ReplicaSet对象上的副本数量，从而使ReplicaSet控制 器删除多余的两个pod而留下 一 个。
+
+    如果当 前副本数大于 2, Autoscaler 单次操作至 多 使副本数翻倍;如果副本数只有 1 或 2, Autoscaler 最多扩 容到 4个副本。
+    另外 ， Autoscaler 两次扩容操作之间的时间间隔 也 有限制 。 目前，只有当 3 分 钟内没有任何伸缩操作时才会触发扩容，缩容操作频率更低一-5分钟。
+
+    创建HPA（基于内存自动调整）：
+    基于内存的自动伸缩比基于CPU的困难很多。 主要原因在于，扩容之后原有的 pod 需要有办法释放内存 。 这只能由应用完成，系统无法代芳 。 系统所能做的只有 杀死并重启应用，希望它能比之前少占用 一些内存;但如果应用使用了跟之前一样 多的内存 ， Autoscaler 就会扩容、扩容 ， 再扩容 ， 直 到达到 HPA 资源上配置的最大 pod 数量 。 显然没有 人想 要这种行为 。 基于内存使用的自动伸缩在 Kubernetes 1.8 中 得到支持，配置方法与基于 CPU 的自动伸缩完全相同 。具体使用方式留作读者练习 。
+
+    基于其他自定义度量进行自动伸缩：
+    P454页，总共有Resource、pods、Object度量类型
+
+## 纵向扩容
+    增加分配给pod的cpu、内存等资源
+
+# 高级调度
+    Kubernetes允许你去影响pod被调度到哪个节点。 
+
+## 使用污点和容忍度阻止节点调度到特定节点
+    这些特性被用于限制哪些pod可以被调度到某一个节点。 只有当 一个pod容忍某个 节点的污点， 这个pod才能被调度到该节点。
+    节点 选择器和节点亲缘性规则，是通过明确的 在pod中添加 的 信 息，来决定 一 个pod可 以或者不可以被调度到哪些节点上。而污点则是在不修改巳有pod信息的前提下， 通过在节点上添加污点信息，来拒绝pod在某些节点上的部署。
+
+    通过kubectl describe node查看节点的污点信息
+    污点包含了一个key、value, 以及一个effect, 表现为<key>=<value>:<effect>
+    Taints:node-role.kubernetes.io/master:NoSchedule, 包含一 个为node­-role.kubernetes.io/master的key, 一个空的value, 以及值为NoSchedule的effect，这个污点将阻止pod调度到这个节点上面，除非有pod能容忍这个污点
+
+    通过kubectl describe pops podname 显示pod的污点容忍度
+    Tolerations: node-role.kubernetes.io/master=:NoSchedule
+
+    • NoSchedule 表示如果 pod 没有容忍这些污点， pod 则不能被调度到包含 这些污点的节点上。
+    • PreferNoSchedule 是 NoSchedule 的一个宽松的版本， 表示尽量阻止 pod 被调度到这个节点上， 但是如果没有其他节点可以调度， pod 依然会被调度到这个节点上。
+    • NoExecute 不同于 NoSchedule 以及 PreferNoSchedule, 后两者只在 调度期间起作用， 而 NoExecute 也会影响正在节点上运行着的 pod。 如果 在一个节点上添加了 NoExecute 污点， 那些在该节点上运行着的 pod, 如 果没有容忍这个 NoExecute 污点， 将会从这个节点去除。
+
+    添加污点：
+    kubectl taint node nodel.k8s node-type=production:NoSchedule
+
+    在pod上添加污点容忍度：
+    spec:
+        tolerations:
+        - key: node-type
+          operator: Equal 
+          value: production 
+          effect: NoSchedule
+
+    节点可以拥有多个污点信息，而pod也可以有多个污点容忍度。正如你所见，污点可以只有一个key和 一 个效果，而不必设置value。污点容忍度可以通过设置Equal操作符Equal操作符来指定匹配的value (默认情况下的操作符)，或者也可以通过设置Exists操作符来匹配污点的key。
+## 使用节点亲缘性将pod调度到特定节点上
+    topologyKey字段决定了pod不能被调度的范围。
+    pod亲缘性的topologyKey表示了被调度的pod和另一个pod的距离(在 同一个节点、 同一个 机柜、 同 一个 可用性局域或者可用性地域)。
+
+    污点可以用来让 pod 远离特定的几点。 节点亲缘性 (node affinity), 这种机制允许你通知 Kubemetes 将 pod 只调度到某个几点子集上面。
+    它更倾向于调度到某些节点上， 之后 Kubemetes 将尽量把这个 pod 调度到这些节点上面。 如果没法实现的话， pod 将被调度到其他某个节点上。
+    节点亲缘性根据节点的标签来进行选择， 这点跟节点选择器是一 致的。
+    spec:
+      affinity: 
+        nodeAffinity:
+          requiredDuringSchedulingignoredDuringExecution:    # 只影响正在调度的pod
+            nodeSelectorTerms :
+            - matchExpressions: 
+              - key: gpu
+                operator: In 
+                values:
+                - "true"
+    节点亲缘性的最大好处就是，当调度某 一个 pod 时，指定调度器可 以优先考虑哪些节点，这个功能是通过 preferredDuringSchedulingignored DuringExecution 宇段来实现的 。
+
+# 使用pod亲缘性与非亲缘性对pod进行协同部署
+    指定pod自身之间的亲缘性（来使多个pod部署到相近位置等）。
+    template:
+      spec:
+        affinity: 
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:    # 只影响正在调度的pod
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app: backend
+    要求pod将被调度到和其他包含app=backend标 签 的pod所在的相同节点上(通过topologyKey字段指定)
+    调度器首先找出所有匹配前端 pod 的 podAffinity 配置中 labelSelector 的 pod, 之后将前端 pod 调度到相同的节点上。
+
+    利用pod非亲缘性分开调度pod
+    将pod彼此远离
+    它和pod亲缘 性的表示方式 一样， 只不过是将podAffin江y字段换成podAntiAffin江y, 这将 导致调度器永远不会选择那些有包含podAn巨Affinity匹配标签的pod所在的节 点
+    template:
+      spec:
+        affinity: 
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:    # 只影响正在调度的pod
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app: frontend
+    该pod自身标签为app: frontend，设置了不要调度到运行有pod标签为app: frontend的节点，所以每个pod会被调度到不同节点
+
+# 开发应用的最佳实践
+     但是你可以阻止一 个主容器的启动，直到它的预置条件被满足。这个是通过在 pod中包含 一 个叫作init的容器来实现的
+     一个pod可以拥有任意数量的init容器。init容器是顺序执行的， 并且仅当最后 一 个init容器执行完毕才会去启动主容器。
+     创建：
+    spec:
+      initContainers:
+      - name: init 
+        image: busybox 
+        command:
+        - sh
+        - -c
+        - 'while true; do echo "Waiting for fortune service to come up..."; wget http://fortune -q -T 1 -O /dev/null >/dev/null 2>/dev/null && break; sleep 1; done; echo "Service is up! Starting main container."'
+    创建init容器，循环执行脚本直到执行完毕
+
+    pod还有启动后和停止前两个生命周期钩子函数
+    生命周期的钩子是基于每个容器来指定的， 和init容器 不同的是 ，init容器 是应用到整个pod。 
+    启动后钩子是在容器的主进程启动之后立即执行的（不是主进程初始化完毕才执行）。可以用它在应用启动时做 一些额外的工作。
+    在钩子执行执行完毕之前，容器会一直停留在Waiting状态，如果钩子执行失败或者返回了非0的状态码，主容器会被杀死。
+    spec:
+      containers:
+      - image: luksa/kubia
+        name:kubia
+        lifecycle:
+          postStart:        # 启动后钩子
+            exec:
+             command:
+             - sh
+             - -c
+             - "echo 'hook will fail with exit code 15'; sleep 5; exit 15"
+    他会在容器启动时执行/bin目录下的postStart.sh脚本
+
+    停止前钩子是在容器被终止之前立即执行的。 当一个容器需要终止运行的时候， Kubelet在配置了停止前钩子的时候就会执行这个停止前钩子， 并且仅在执行完钩子程序后才会向容器进程发送SIGTERM信号
+    lifecycle:
+      preStop:          # 停止前钩子
+        httpGet:        # 执行http get请求
+          port: 8080 
+          path: shutdown
+    这个代码清单中定义的停止前钩子在Kuble et开始终止容器的时候就立即执行 到 http://podIP:8080/ shut down的HTTPGET请求。
+    默认情况下，host的值是pod的IP地址。
+    和启动后钩子不同的是，无论钩子执行是否成功容器都会被终止。
+
+## 不用将镜像推送到docker hub而构建pod
+    在Minikube VM中使用DockerDaemon来构建镜像
+    如果你正在使用Minikube开发应用，并且计划在每个更改之后都构建 一个镜像， 可以在MinikubeVM中使用DockerDaemon来进行镜像构建， 而不是通过本地的 DockerDaemon构建然后再推送到镜像中心， 最后拉取到MinikubeVM中。 为了使 用Minikube的DockerDaemon, 只需要将你的DOCKER_HOST环境变量指向它。 幸运的是， 这个做起来实际上比听上去容易多了， 只需要在本地机器上运行下面的命 令:
+    eval ${minikube docker-env)
+    这个命令会帮你设置所有需要的环境变量， 然后你就可以像DockerDaemon运 行在你本地的时候那样构建镜像了。 构建完镜像之后， 不需要再去推送镜像， 因为 它已经存储在MinikubeVM中了， 这样新的pod就可以立即使用这个镜像了。 如果你的pod已经在运行了， 那么可以删除它们或者杀死容器让它们重启。
+
+    在本地构建镜像然后直接复制到Minikube VM中
+    如果你无法使用MinikubeVM内部的DockerDaemon来构建镜像， 这里仍然有 方法来避免将镜像推送到镜像中心， 然后使用运行在MinikubeVM内部的Kubelet拉取镜像这样的流程。 如果你在本地机器构建好了镜像， 可以使用下面的命令将镜 像直接复制到MinikubeVM中:
+    docker save <image> ｜ (eval $(minikube docker-env) && docker load)
+    和之前一 样， 这个 镜像也可以在 pod中立即使用了。 这里注意确保podspec 中 的imagePullPo巨cy不要设置为Always, 因为这会导致 从外部镜像中心拉取镜 像， 从而导致你复制过去的镜像的更改丢失。
+
+# Kubernetes 扩展
+
+## 自定义资源对象 CRD
+    创建资源对象：
+    apiVersion: apiextensions.k8s.io/v1beta1 
+    kind : CustomResourceDefinition
+      metadata :websites. extensions. example. com  # 自定义对象的全名
+    spec:
+      scope: Namespaced     # 命名空间作用域
+    group: extensions.example.com
+    version: v1     # 版本
+    names:          # 指定自定义对象名称的各种形式
+      kind: Website 
+      singular: website 
+      plural: websites
+
+    创建实例：
+    kind: Website 
+    metadata:
+     name: kubia 
+    spec:
+      gitRepo: https://github com/ luksa/kubia-website-example.gi
+
+## 注册自定义 API 服务器
+    要将自定义API服务器 添加到集群中，可以将其部署为一 个pod并通过 Service暴露。
+
+# 使用 Kubernetes服务目录扩展Kubernetes
+    服务目录就是列出所有服务的目录。 用户可以浏览目录并自行设置 目录中列出的服务实例， 却无须处理服务运行所需的Pod、 Service、 ConfigMap和 其他资源。 
+    • 一个ClusterServiceBroker, 描述一个可以提供服务的(外部)系统
+    • 一个ClusterServiceClass, 描述 一个可供应的服务类型
+    • 一个Servicelnstance, 已配置服务的一个实例
+    • 一个ServiceBinding, 表示 一 组客户端(pod)和Servicelnstance之间的绑定
+
+    集 群 管 理 员 为 会 每 个 服 务 代 理 创 建 一 个 C l u s t e r S e r v i c e Br o k e r 资 源 ， 而这些服务代理需要在集群中提供它们的服务。 接着， Kubemetes从服务代理获 取它可以提供的服务列表， 并为它们中的每个服务创建一个ClusterServiceClass资源。 当用户调配服务时， 首先需要创建 一 个Servicelnstance资源， 然后创建 一 个 ServiceBinding以将 该Servicelnstance 绑定到它们的pod。 下一 步， 这些pod 会被注 入一 个Secret, 该Secret 包含连接到配置的Servicelnstance 所需的凭证和其他 数据。
+    
+    与核心Kubemetes类似的是， 服务目录也是由三个组件组成的分布式系统:
+    • 服务目录API 服务器
+    • 作为存储的etcd
+    • 运行所有控制器的控制器管理器
