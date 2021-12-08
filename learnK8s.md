@@ -1135,3 +1135,132 @@
     • 服务目录API 服务器
     • 作为存储的etcd
     • 运行所有控制器的控制器管理器
+
+# Pod 优先级抢占
+    要使用优先级和抢占：
+    1.新增一个或多个 PriorityClass。
+    2.创建 Pod，并将其 priorityClassName 设置为新增的 PriorityClass。 当然你不需要直接创建 Pod；通常，你将会添加 priorityClassName 到集合对象（如 Deployment） 的 Pod 模板中。
+
+    PriorityClass 是一个无名称空间对象，它定义了从优先级类名称到优先级整数值的映射。 名称在 PriorityClass 对象元数据的 name 字段中指定。 值在必填的 value 字段中指定。值越大，优先级越高。 PriorityClass 对象的名称必须是有效的 DNS 子域名， 并且它不能以 system- 为前缀。
+
+    PriorityClass 还有两个可选字段：globalDefault 和 description。 globalDefault 字段表示这个 PriorityClass 的值应该用于没有 priorityClassName 的 Pod。 系统中只能存在一个 globalDefault 设置为 true 的 PriorityClass。 如果不存在设置了 globalDefault 的 PriorityClass， 则没有 priorityClassName 的 Pod 的优先级为零。
+
+    创建：
+    apiVersion: scheduling.k8s.io/v1
+    kind: PriorityClass
+    metadata:
+        name: high-priority
+    value: 1000000
+    globalDefault: false
+    description: "此优先级类应仅用于 XYZ 服务 Pod。"
+
+    创建使用该优先级的pod：
+    apiVersion: v1
+    kind: Pod
+    metadata:
+    name: nginx
+    labels:
+        env: test
+    spec:
+    containers:
+    - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+    priorityClassName: high-priority
+
+    当启用 Pod 优先级时，调度程序会按优先级对悬决 Pod 进行排序， 并且每个悬决的 Pod 会被放置在调度队列中其他优先级较低的悬决 Pod 之前。 因此，如果满足调度要求，较高优先级的 Pod 可能会比具有较低优先级的 Pod 更早调度。 如果无法调度此类 Pod，调度程序将继续并尝试调度其他较低优先级的 Pod。
+
+    当 Pod P 抢占节点 N 上的一个或多个 Pod 时， Pod P 状态的 nominatedNodeName 字段被设置为节点 N 的名称。 该字段帮助调度程序跟踪为 Pod P 保留的资源，并为用户提供有关其集群中抢占的信息。
+
+    请注意，Pod P 不一定会调度到“被提名的节点（Nominated Node）”。 在 Pod 因抢占而牺牲时，它们将获得体面终止期。 如果调度程序正在等待牺牲者 Pod 终止时另一个节点变得可用， 则调度程序将使用另一个节点来调度 Pod P。 因此，Pod 规约中的 nominatedNodeName 和 nodeName 并不总是相同。 此外，如果调度程序抢占节点 N 上的 Pod，但随后比 Pod P 更高优先级的 Pod 到达， 则调度程序可能会将节点 N 分配给新的更高优先级的 Pod。 在这种情况下，调度程序会清除 Pod P 的 nominatedNodeName。 通过这样做，调度程序使 Pod P 有资格抢占另一个节点上的 Pod。
+
+    当有多个节点可供执行抢占操作时，调度器会尝试选择具有一组优先级最低的 Pod 的节点。 
+
+
+
+
+## 非抢占式 PriorityClass
+    配置了 PreemptionPolicy: Never 的 Pod 将被放置在调度队列中较低优先级 Pod 之前， 但它们不能抢占其他 Pod。等待调度的非抢占式 Pod 将留在调度队列中，直到有足够的可用资源， 它才可以被调度。非抢占式 Pod，像其他 Pod 一样，受调度程序回退的影响。 这意味着如果调度程序尝试这些 Pod 并且无法调度它们，它们将以更低的频率被重试， 从而允许其他优先级较低的 Pod 排在它们之前。
+    非抢占式 Pod 仍可能被其他高优先级 Pod 抢占。
+    PreemptionPolicy 默认为 PreemptLowerPriority， 这将允许该 PriorityClass 的 Pod 抢占较低优先级的 Pod（现有默认行为也是如此）。 如果 PreemptionPolicy 设置为 Never，则该 PriorityClass 中的 Pod 将是非抢占式的。
+    创建：
+    apiVersion: scheduling.k8s.io/v1
+    kind: PriorityClass
+    metadata:
+        name: high-priority-nonpreempting
+    value: 1000000
+    preemptionPolicy: Never
+    globalDefault: false
+    description: "This priority class will not cause other pods to be preempted."
+
+## 被抢占牺牲者的体面终止
+    当 Pod 被抢占时，牺牲者会得到他们的 体面终止期。 它们可以在体面终止期内完成工作并退出。如果它们不这样做就会被杀死。 这个体面终止期在调度程序抢占 Pod 的时间点和待处理的 Pod (P) 可以在节点 (N) 上调度的时间点之间划分出了一个时间跨度。 同时，调度器会继续调度其他待处理的 Pod。当牺牲者退出或被终止时， 调度程序会尝试在待处理队列中调度 Pod。 因此，调度器抢占牺牲者的时间点与 Pod P 被调度的时间点之间通常存在时间间隔。 为了最小化这个差距，可以将低优先级 Pod 的体面终止时间设置为零或一个小数字。
+
+### 与低优先级 Pod 之间的 Pod 间亲和性
+     “如果从此节点上删除优先级低于悬决 Pod 的所有 Pod，悬决 Pod 是否可以在该节点上调度？”
+     如果悬决 Pod 与节点上的一个或多个较低优先级 Pod 具有 Pod 间亲和性， 则在没有这些较低优先级 Pod 的情况下，无法满足 Pod 间亲和性规则。 在这种情况下，调度程序不会抢占节点上的任何 Pod。 相反，它寻找另一个节点。调度程序可能会找到合适的节点， 也可能不会。无法保证悬决 Pod 可以被调度。
+
+## 节点压力驱逐
+    节点压力驱逐是 kubelet 主动终止 Pod 以回收节点上资源的过程。
+    kubelet 监控集群节点的 CPU、内存、磁盘空间和文件系统的 inode 等资源。 当这些资源中的一个或者多个达到特定的消耗水平， kubelet 可以主动地使节点上一个或者多个 Pod 失效，以回收资源防止饥饿。
+
+    在节点压力驱逐期间，kubelet 将所选 Pod 的 PodPhase 设置为 Failed。这将终止 Pod。
+
+    如果 Pod 是由替换失败 Pod 的工作负载资源 （例如 StatefulSet 或者 Deployment）管理， 则控制平面或 kube-controller-manager 会创建新的 Pod 来代替被驱逐的 Pod。
+
+    kubelet 使用各种参数来做出驱逐决定，如下所示：
+    ·驱逐信号
+    ·驱逐条件
+    ·监控间隔
+
+    驱逐信号是特定资源在特定时间点的当前状态。 kubelet 使用驱逐信号，通过将信号与驱逐条件进行比较来做出驱逐决定， 驱逐条件是节点上应该可用资源的最小量。
+
+# 调度框架
+    调度框架定义了一些扩展点。调度器插件注册后在一个或多个扩展点处被调用。 这些插件中的一些可以改变调度决策，而另一些仅用于提供信息。
+
+    每次调度一个 Pod 的尝试都分为两个阶段，即 调度周期 和 绑定周期。
+
+1. 队列排序
+    队列排序插件用于对调度队列中的 Pod 进行排序。 队列排序插件本质上提供 less(Pod1, Pod2) 函数。 一次只能启动一个队列插件。
+
+2. 前置过滤
+    前置过滤插件用于预处理 Pod 的相关信息，或者检查集群或 Pod 必须满足的某些条件。 如果 PreFilter 插件返回错误，则调度周期将终止。
+3. 过滤
+过滤插件用于过滤出不能运行该 Pod 的节点。对于每个节点， 调度器将按照其配置顺序调用这些过滤插件。如果任何过滤插件将节点标记为不可行， 则不会为该节点调用剩下的过滤插件。节点可以被同时进行评估。
+4. 后置过滤
+这些插件在筛选阶段后调用，但仅在该 Pod 没有可行的节点时调用。 插件按其配置的顺序调用。如果任何后过滤器插件标记节点为“可调度”， 则其余的插件不会调用。典型的后筛选实现是抢占，试图通过抢占其他 Pod 的资源使该 Pod 可以调度。
+5. 前置评分
+前置评分插件用于执行 “前置评分” 工作，即生成一个可共享状态供评分插件使用。 如果 PreScore 插件返回错误，则调度周期将终止。
+6. 评分
+评分插件用于对通过过滤阶段的节点进行排名。调度器将为每个节点调用每个评分插件。 将有一个定义明确的整数范围，代表最小和最大分数。 在标准化评分阶段之后，调度器将根据配置的插件权重 合并所有插件的节点分数。
+7. 标准化评分
+标准化评分插件用于在调度器计算节点的排名之前修改分数。 在此扩展点注册的插件将使用同一插件的评分 结果被调用。 每个插件在每个调度周期调用一次。
+8. Reserve
+Reserve 是一个信息性的扩展点。 管理运行时状态的插件（也成为“有状态插件”）应该使用此扩展点，以便 调度器在节点给指定 Pod 预留了资源时能够通知该插件。 这是在调度器真正将 Pod 绑定到节点之前发生的，并且它存在是为了防止 在调度器等待绑定成功时发生竞争情况。
+9. Permit
+Permit 插件在每个 Pod 调度周期的最后调用，用于防止或延迟 Pod 的绑定。 一个允许插件可以做以下三件事之一：
+- 批准：一旦所有 Permit 插件批准 Pod 后，该 Pod 将被发送以进行绑定。
+- 拒绝：如果任何 Permit 插件拒绝 Pod，则该 Pod 将被返回到调度队列。 这将触发Unreserve 插件。
+- 等待（带有超时）：如果一个 Permit 插件返回 “等待” 结果，则 Pod 将保持在一个内部的 “等待中” 的 Pod 列表，同时该 Pod 的绑定周期启动时即直接阻塞直到得到 批准。如果超时发生，等待 变成 拒绝，并且 Pod 将返回调度队列，从而触发 Unreserve 插件。
+10. 预绑定
+预绑定插件用于执行 Pod 绑定前所需的任何工作。 例如，一个预绑定插件可能需要提供网络卷并且在允许 Pod 运行在该节点之前 将其挂载到目标节点上。
+如果任何 PreBind 插件返回错误，则 Pod 将被拒绝 并且 退回到调度队列中。
+11. Bind
+Bind 插件用于将 Pod 绑定到节点上。直到所有的 PreBind 插件都完成，Bind 插件才会被调用。 各绑定插件按照配置顺序被调用。绑定插件可以选择是否处理指定的 Pod。 如果绑定插件选择处理 Pod，剩余的绑定插件将被跳过。
+12. 绑定后
+这是个信息性的扩展点。 绑定后插件在 Pod 成功绑定后被调用。这是绑定周期的结尾，可用于清理相关的资源。
+13. Unreserve
+这是个信息性的扩展点。 如果 Pod 被保留，然后在后面的阶段中被拒绝，则 Unreserve 插件将被通知。 Unreserve 插件应该清楚保留 Pod 的相关状态。
+使用此扩展点的插件通常也使用Reserve。
+
+
+
+
+
+
+
+
+
+
+
+
