@@ -1255,6 +1255,18 @@ Bind 插件用于将 Pod 绑定到节点上。直到所有的 PreBind 插件都�
 
 
 
+    加上上面的 sched.scheduleOne 函数，3个子队列整体的工作流程就是：
+
+    每隔1秒，检测 backoffQ 里是否有 Pod 可以被放进 activeQ 里
+
+    每隔30秒，检测 unscheduleodQ 里是否有 Pod 可以被放进 activeQ 里(默认条件是等待时间超过60秒)
+
+    不停的调用 scheduleOne 方法，从 activeQ 里弹出 Pod 进行调度
+
+    如果一个 Pod 调度失败了，正常就是不可调度的，应该放入 unscheduleableQ 队列。如果集群内的资源状态一直不发生变化，这种情况，每隔60s这些 Pod 还是会被重新尝试调度一次。
+
+    但是一旦资源的状态发生了变化，这些不可调度的 Pod 就很可能可以被调度了，也就是 unscheduleableQ 中的 Pod 应该放进 backoffQ 里面去了。等待安排重新调度，backoffQ 里的 Pod 会根据重试的次数设定等待重试的时间，重试的次数越少，等待重新调度的时间也就越少。backOffQ 里的 Pod 调度的速度会比 unscheduleableQ 里的 Pod 快得多。
+
 
 
 
