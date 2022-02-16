@@ -321,5 +321,425 @@
     注释会被编译器直接忽略，注解则可以被编译器打包进入class文件，因此，注解是一种用作标注的“元数据”。
     注解（Annotation）是Java语言用于工具处理的标注：
 ### 定义注解
-    
+    void check(Person person) throws IllegalArgumentException, ReflectiveOperationException {
+        // 遍历所有Field:
+        for (Field field : person.getClass().getFields()) {
+            // 获取Field定义的@Range:
+            Range range = field.getAnnotation(Range.class);
+            // 如果@Range存在:
+            if (range != null) {
+                // 获取Field的值:
+                Object value = field.get(person);
+                // 如果值是String:
+                if (value instanceof String) {
+                    String s = (String) value;
+                    // 判断值是否满足@Range的min/max:
+                    if (s.length() < range.min() || s.length() > range.max()) {
+                        throw new IllegalArgumentException("Invalid field: " + field.getName());
+                    }
+                }
+            }
+        }
+    }
 
+## 泛型
+    泛型就是定义一种模板，例如ArrayList<T>，然后在代码中为用到的类创建对应的ArrayList<类型>
+    编译器如果能自动推断出泛型类型，就可以省略后面的泛型类型。例如，对于下面的代码：List<Number> list = new ArrayList<Number>();
+    使用泛型时，把泛型参数<T>替换为需要的class类型，例如：ArrayList<String>，ArrayList<Number>等；
+    不指定泛型参数类型时，编译器会给出警告，且只能将<T>视为Object类型；
+    可以在接口中定义泛型类型，实现此接口的类必须实现正确的泛型类型。
+    自定义类型只要实现Comparable<T>接口的int compareTo(T o)方法即可使用Arrays.sort()方法排序 
+    泛型实现机制：编译器把类型<T>视为Object，编译器根据<T>实现安全的强制转型。
+    Java的泛型是由编译器在编译时实行的，编译器内部永远把所有类型T视为Object处理，但是，在需要转型的时候，编译器会根据T的类型自动为我们实行安全地强制转型。
+    泛型的局限：
+    <T>不能是基本类型，例如int，因为实际类型是Object，Object类型无法持有基本类型：
+    无法取得带泛型的Class，编译后它们全部都是Pair<Object>
+### extends通配符
+    使用类似<? extends Number>通配符作为方法参数时表示：
+        方法内部可以调用获取Number引用的方法，例如：Number n = obj.getFirst();；
+        方法内部无法调用传入Number引用的方法（null除外），例如：obj.setFirst(Number n);。
+    即一句话总结：使用extends通配符表示可以读，不能写。
+    使用类似<T extends Number>定义泛型类时表示：
+        泛型类型限定为Number以及Number的子类。
+
+### super通配符
+    使用<? super Integer>通配符表示：
+        允许调用set(? super Integer)方法传入Integer的引用；
+        不允许调用get()方法获得Integer的引用。
+    唯一例外是可以获取Object的引用：Object o = p.getFirst()。
+    换句话说，使用<? super Integer>通配符作为方法参数，表示方法内部代码对于参数只能写，不能读。
+
+## 集合
+    集合就是“由若干个确定的元素所构成的整体”
+    由于数组初始化后大小不可变，且只能只能按索引顺序存取。所以产生了可变大小的集合
+    Java的java.util包主要提供了以下三种类型的集合：
+    - List：一种有序列表的集合，例如，按索引排列的Student的List；
+    - Set：一种保证没有重复元素的集合，例如，所有无重复名称的Student的Set；
+    - Map：一种通过键值（key-value）查找的映射表集合，例如，根据Student的name查找对应Student的Map。
+    Java集合的设计有几个特点：一是实现了接口和实现类相分离，例如，有序表的接口是List，具体的实现类有ArrayList，LinkedList等，二是支持泛型，我们可以限制在一个集合中只能放入同一种数据类型的元素
+
+### List
+    List的行为和数组几乎完全相同：List内部按照放入元素的先后顺序存放，每个元素都可以通过索引确定自己的位置，
+    ArrayList 最常用的 List 的实现类
+    实际上，ArrayList在内部使用了数组来存储所有元素。例如，一个ArrayList拥有5个元素，实际数组大小为6（即有一个空位），即将当初原始数组的增添移位自动化，没有空闲位置的时候，ArrayList先创建一个更大的新数组，然后把旧数组的所有元素复制到新数组，紧接着用新数组取代旧数组
+    ArrayList把添加和删除的操作封装起来，让我们操作List类似于操作数组，却不用关心内部元素如何移动。
+    常用操作：
+    .add(int index, E e)默认末尾
+    .remove(int index) .remove(Object e)
+    .get(int index)
+    .size()
+    .indexOf() 内部使用equals()方法判断两个元素是否相等
+    for (String s : list) {
+        `````
+    }
+    List 转 Array
+    Integer[] array = list.toArray(new Integer[3]);
+    给toArray(T[])传入一个类型相同的Array，List内部自动把元素复制到传入的Array中
+    Array 转 List
+    List<String> list = Arrays.asList(array);找不到或无法加载主类 Main
+
+    自定义数组元素要使用indexOf()，必须覆写equals()方法
+    编写equals()方法：
+    1.先确定实例“相等”的逻辑，即哪些字段相等，就认为实例相等；
+    2.用instanceof判断传入的待比较的Object是不是当前类型，如果是，继续比较，否则，返回false；
+    3.对引用类型用Objects.equals()比较，对基本类型直接用==比较。
+
+### Map
+    Map也是一个接口，最常用的实现类是HashMap
+    .get(K key)
+    .put(K key, V value)
+    for (String key : map.keySet()) {
+        
+    }
+    for (Map.Entry<String, Integer> entry : map.entrySet()) {
+        String key = entry.getKey();
+        Integer value = entry.getValue();
+    }
+    Map和List不同的是，Map存储的是key-value的映射关系，并且，它不保证顺序。
+    在Map的内部，对key做比较是通过equals()实现的，这一点和List查找元素需要正确覆写equals()是一样的，即正确使用Map必须保证：作为key的对象必须正确覆写equals()方法。
+    通过key计算索引的方式就是调用key对象的hashCode()方法，它返回一个int整数。HashMap正是通过这个方法直接定位key对应的value的索引，继而直接返回value。
+    
+    因此，正确使用Map必须保证：
+
+    1.作为key的对象必须正确覆写equals()方法，相等的两个key实例调用equals()必须返回true；
+    2.作为key的对象还必须正确覆写hashCode()方法，且hashCode()方法要严格遵循以下规范：
+    3.如果两个对象相等，则两个对象的hashCode()必须相等；
+    4.如果两个对象不相等，则两个对象的hashCode()尽量不要相等。
+
+    编写equals()和hashCode()遵循的原则是：
+    equals()用到的用于比较的每一个字段，都必须在hashCode()中用于计算；equals()中没有使用到的字段，绝不可放在hashCode()中计算。
+    int hashCode() {
+        return Objects.hash(firstName, lastName, age);
+    }
+
+    既然HashMap内部使用了数组，通过计算key的hashCode()直接定位value所在的索引，那么第一个问题来了：hashCode()返回的int范围高达±21亿，先不考虑负数，HashMap内部使用的数组得有多大？
+    实际上HashMap初始化时默认的数组大小只有16，任何key，通过对15取余确定位置。
+    在容量不够时，会自动吧长度扩为2倍，并重新计算索引
+    如果索引存在冲突，则在冲突的位置使用索引
+
+    也有按照指定顺序存取的map， treeMap
+
+### 使用Properties
+    读写配置文件，它的Key-Value一般都是String-String类型的
+    Java集合库提供了一个Properties来表示一组“配置”。
+    Java默认配置文件以.properties为扩展名，每行以key=value表示，以#课开头的是注释。
+    String f = "setting.properties";
+    Properties props = new Properties();
+    props.load(new java.io.FileInputStream(f));
+
+    String filepath = props.getProperty("last_open_file");
+    String interval = props.getProperty("auto_save_interval", "120");
+    props.setProperty("language", "Java");
+    props.store(new FileOutputStream("C:\\conf\\setting.properties"), "这是写入的properties注释");
+
+    用Properties读取配置文件，一共有三步：
+    1.创建Properties实例；
+    2.调用load()读取文件；
+    3.调用getProperty()获取配置。
+    如果有多个.properties文件，可以反复调用load()读取，后读取的key-value会覆盖已读取的key-value：
+
+### Set
+    Set用于存储不重复的元素集合
+    .add()
+    .remove()
+    .contains()
+    Set实际上相当于只存储key、不存储value的Map。我们经常用Set用于去除重复元素。
+    放入Set的元素和Map的key类似，都要正确实现equals()和hashCode()方法，否则该元素无法正确地放入Set。
+    最常用的Set实现类是HashSet，实际上，HashSet仅仅是对HashMap的一个简单封装
+
+### Queue
+    .add() .offer()
+    .remove()  .poll()
+    .peek() 获取队首元素
+    如果当前Queue是一个空队列，调用remove()方法，它会抛出异常，如果我们调用poll()方法来取出队首元素，当获取失败时，它不会抛异常，而是返回null
+    Queue<String> queue = new LinkedList<>();
+
+### PriorityQueue
+    Queue<String> q = new PriorityQueue<>();
+    放入PriorityQueue的元素，必须实现Comparable接口，PriorityQueue会根据元素的排序顺序决定出队的优先级。若元素没有实现该接口，则在创建PriorityQueue将比较函数传入，提供一个Comparator对象来判断两个元素的顺序。
+    Queue<User> q = new PriorityQueue<>(new UserComparator());
+
+    class UserComparator implements Comparator<User> {
+        public int compare(User u1, User u2) {
+            if (u1.number.charAt(0) == u2.number.charAt(0)) {
+                // 如果两人的号都是A开头或者都是V开头,比较号的大小:
+                return u1.number.compareTo(u2.number);
+            }
+            if (u1.number.charAt(0) == 'V') {
+                // u1的号码是V开头,优先级高:
+                return -1;
+            } else {
+                return 1;
+            }
+        }
+    }
+
+### Stack
+    .push()
+    .pop()
+    .peek()
+    在Java中，我们用Deque可以实现Stack的功能
+    因为方法调用栈有容量限制，嵌套调用过多会造成栈溢出，即引发StackOverflowError
+
+### Iterator
+    Java的集合类都可以使用for each循环，List、Set和Queue会迭代每个元素，Map会迭代每个key
+    Java编译器并不知道如何遍历List，只是因为编译器把for each循环通过Iterator改写为了普通的for循环
+    for (Iterator<String> it = list.iterator(); it.hasNext(); ) {
+        String s = it.next();
+        System.out.println(s);
+    }
+    使用迭代器的好处在于，调用方总是以统一的方式遍历各种集合类型，而不必关系它们内部的存储结构。
+    如果我们自己编写了一个集合类，想要使用for each循环，只需满足以下条件：
+    1.集合类实现Iterable接口，该接口要求返回一个Iterator对象；
+    2.用Iterator对象迭代集合内部数据（实现hasNext()和 next()函数）。
+    class ReverseList<T> implements Iterable<T> {
+
+        private List<T> list = new ArrayList<>();
+
+        public void add(T t) {
+            list.add(t);
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            return new ReverseIterator(list.size());
+        }
+
+        class ReverseIterator implements Iterator<T> {
+            int index;
+
+            ReverseIterator(int index) {
+                this.index = index;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return index > 0;
+            }
+
+            @Override
+            public T next() {
+                index--;
+                return ReverseList.this.list.get(index);
+            }
+        }
+    }
+    在编写Iterator的时候，我们通常可以用一个内部类来实现Iterator接口，这个内部类可以直接访问对应的外部类的所有字段和方法。
+### Collections
+    Collections是JDK提供的工具类，同样位于java.util包中。它提供了一系列静态方法，能更方便地操作各种集合。
+
+## IO
+    IO 的输入输出是相对于内存来说的
+    字节流：InputStream、OuputStream
+    字符流：Reader、Writer
+    Reader和Writer本质上是一个能自动编解码的InputStream和OutputStream。
+    InputStream、OutputStream、Reader和Writer都是同步IO的抽象类，对应的具体实现类，以文件为例，有FileInputStream、FileOutputStream、FileReader和FileWriter
+### File对象
+    File f = new File("/usr/bin/javac");
+    构造一个File对象，即使传入的文件或目录不存在，代码也不会出错，因为构造一个File对象，并不会导致任何磁盘操作。
+    · 可以获取路径／绝对路径／规范路径：getPath()/getAbsolutePath()/getCanonicalPath()；
+    · 可以获取目录的文件和子目录：list()/listFiles()；
+    · 可以创建或删除文件和目录。
+### InputStream
+    InputStream并不是一个接口，而是一个抽象类，它是所有输入流的超类。
+    这个抽象类定义的一个最重要的方法就是int read()，这个方法会读取输入流的下一个字节，并返回字节表示的int值（0~255）。如果已读到末尾，返回-1表示不能继续读取了。
+    FileInputStream是InputStream的一个子类
+    通过close()方法来关闭流
+    public void readFile() throws IOException {
+        try (InputStream input = new FileInputStream("src/readme.txt")) {
+            int n;
+            while ((n = input.read()) != -1) {
+                System.out.println(n);
+            }
+        } // 编译器在此自动为我们写入finally并调用close()
+    }
+    一次读取多个字节int read(byte[] b)：读取若干字节并填充到byte[]数组，返回读取的字节数
+    面向抽象编程原则的应用：接受InputStream抽象类型，而不是具体的FileInputStream类型，从而使得代码可以处理InputStream的任意实现类。
+### OutputStream
+    和InputStream类似，OutputStream也是抽象类，它是所有输出流的超类。这个抽象类定义的一个最重要的方法就是void write(int b)
+    这个方法会写入一个字节到输出流。要注意的是，虽然传入的是int参数，但只会写入一个字节，即只写入int最低8位表示字节的部分（相当于b & 0xff）
+    output.write("Hello".getBytes("UTF-8")); // Hello
+### Filter模式
+    FileInputStream：从文件读取数据，是最终数据源；
+    ServletInputStream：从HTTP请求读取数据，是最终数据源；
+    Socket.getInputStream()：从TCP连接读取数据，是最终数据源；
+    当我们需要给一个“基础”InputStream附加各种功能时，我们先确定这个能提供数据源的InputStream，因为我们需要的数据总得来自某个地方，例如，FileInputStream，数据来源自文件：
+
+    InputStream file = new FileInputStream("test.gz");
+    紧接着，我们希望FileInputStream能提供缓冲的功能来提高读取的效率，因此我们用BufferedInputStream包装这个InputStream，得到的包装类型是BufferedInputStream，但它仍然被视为一个InputStream：
+
+    InputStream buffered = new BufferedInputStream(file);
+    最后，假设该文件已经用gzip压缩了，我们希望直接读取解压缩的内容，就可以再包装一个GZIPInputStream：
+
+    InputStream gzip = new GZIPInputStream(buffered);
+    无论我们包装多少次，得到的对象始终是InputStream，我们直接用InputStream来引用它，就可以正常读取：
+    上述这种通过一个“基础”组件再叠加各种“附加”功能组件的模式，称之为Filter模式
+
+    可以把一个InputStream和任意个FilterInputStream组合；
+    可以把一个OutputStream和任意个FilterOutputStream组合。
+### 序列化
+    序列化是指把一个Java对象变成二进制内容，本质上就是一个byte[]数组。
+    把Java对象存储到文件或者通过网络传输出去了。
+    一个Java对象要能序列化，必须实现一个特殊的java.io.Serializable接口
+    把一个Java对象变为byte[]数组，需要使用ObjectOutputStream。它负责把一个Java对象写入一个字节流
+    try (ObjectOutputStream output = new ObjectOutputStream(buffer)) {
+        // 写入int:
+        output.writeInt(12345);
+        // 写入String:
+        output.writeUTF("Hello");
+        // 写入Object:
+        output.writeObject(Double.valueOf(123.456));
+    }
+    反序列化：
+    try (ObjectInputStream input = new ObjectInputStream(...)) {
+        int n = input.readInt();
+        String s = input.readUTF();
+        Double d = (Double) input.readObject();
+    }
+    调用readObject()可以直接返回一个Object对象。要把它变成一个特定类型，必须强制转型。
+    反序列化时不调用构造方法，可设置serialVersionUID作为版本号（非必需）
+### Reader
+    Reader是Java的IO库提供的另一个输入流接口。和InputStream的区别是，InputStream是一个字节流，即以byte为单位读取，而Reader是一个字符流，即以char为单位读取：
+    java.io.Reader是所有字符输入流的超类，它最主要的方法是：
+    public int read() throws IOException;
+    FileReader是Reader的一个子类，它可以打开文件并获取Reader
+    我们需要用try (resource)来保证Reader在无论有没有IO错误的时候都能够正确地关闭
+    Reader本质上是一个基于InputStream的byte到char的转换器
+### Writer
+    Writer就是带编码转换器的OutputStream，它把char转换为byte并输出。
+    Writer是所有字符输出流的超类，它提供的方法主要有：
+    · 写入一个字符（0~65535）：void write(int c)； 
+    · 写入字符数组的所有字符：void write(char[] c)；
+    · 写入String表示的所有字符：void write(String s)。
+    FileWriter就是向文件中写入字符流的Writer
+### PrintStream和PrintWriter
+    PrintStream是一种FilterOutputStream，它在OutputStream的接口上，额外提供了一些写入各种数据类型的方法：
+    写入int：print(int)
+    写入boolean：print(boolean)
+    写入String：print(String)
+    写入Object：print(Object)，实际上相当于print(object.toString())
+    PrintStream最终输出的总是byte数据，而PrintWriter则是扩展了Writer接口，它的print()/println()方法最终输出的是char数据。
+
+## 正则
+### 规则
+    s.matches(regx)
+    如果正则表达式有特殊字符，那就需要用\转义。例如，正则表达式a\&c，其中\&是用来匹配特殊字符&的，它能精确匹配字符串"a&c"
+    正则表达式在Java代码中也是一个字符串，所以，对于正则表达式a\&c来说，对应的Java字符串是"a\\&c"，因为\也是Java字符串的转义字符，两个\\实际上表示的是一个\
+    .匹配一个任意字符
+    \d仅限一个数字字符   而\D则匹配一个非数字
+    \w可以匹配一个字母、数字或下划线
+
+    修饰符*可以匹配任意个字符，包括0个字符
+    修饰符+可以匹配至少一个字符
+    修饰符?可以匹配0个或一个字符   
+    修饰符{n}指定匹配重复次数
+    修饰符{n,m}指定匹配n~m个字符
+
+    [...]可以匹配范围内的字符，[123456789]可以匹配1~9，[^1-9]表示匹配非1～9
+
+    |连接的两个正则规则是或规则，例如，AB|CD表示可以匹配AB或CD
+    把公共部分提出来，然后用(...)把子规则括起来表示
+### 提取匹配到的部分
+    引入java.util.regex包，用Pattern对象匹配，匹配后获得一个Matcher对象，如果匹配成功，就可以直接从Matcher.group(index)返回子串
+    Matcher.group(index)方法的参数用1表示第一个子串，2表示第二个子串，0为原字符串
+    Pattern p = Pattern.compile("(\\d{3,4})\\-(\\d{7,8})");
+    Matcher m = p.matcher("010-12345678");
+    if (m.matches()) {
+        String g1 = m.group(1);
+        String g2 = m.group(2);
+        System.out.println(g1);
+        System.out.println(g2);
+    } else {
+        System.out.println("匹配失败!");
+    }
+    在规则\d+后面加个?即可表示非贪婪匹配(尽可能少的匹配)
+
+### 搜索和替换
+    搜索
+    Pattern p = Pattern.compile("\\wo\\w");
+    Matcher m = p.matcher(s);
+    while (m.find()) {
+        String sub = s.substring(m.start(), m.end());
+        System.out.println(sub);
+    }
+    获取到Matcher对象后，不需要调用matches()方法（因为匹配整个串肯定返回false），而是反复调用find()方法，在整个串中搜索能匹配上\\wo\\w规则的子串，并打印出来。这种方式比String.indexOf()要灵活得多，因为我们搜索的规则是3个字符：中间必须是o，前后两个必须是字符[A-Za-z0-9_]。
+
+    替换
+    使用正则表达式替换字符串可以直接调用String.replaceAll()，它的第一个参数是正则表达式，第二个参数是待替换的字符串
+    如果我们要把搜索到的指定字符串按规则替换，比如前后各加一个<b>xxxx</b>，这个时候，使用replaceAll()的时候，我们传入的第二个参数可以使用$1、$2来反向引用匹配到的子串
+
+## 编码&加密
+    URL编码的目的是把任意文本数据编码为%前缀表示的文本，便于浏览器和服务器处理；
+    Base64编码的目的是把任意二进制数据编码为文本，但编码后数据量会增加1/3。
+
+## 多线程
+    当Java程序启动的时候，实际上是启动了一个JVM进程，然后，JVM启动主线程来执行main()方法。在main()方法中，我们又可以启动其他线程。
+### 创建新线程
+    方式一：从Thread派生一个自定义类，然后覆写run()方法：
+    public class Main {
+        public static void main(String[] args) {
+            Thread t = new MyThread();
+            t.start(); // 启动新线程
+        }
+    }
+    class MyThread extends Thread {
+        @Override
+        public void run() {
+            System.out.println("start new thread!");
+        }
+    }
+    方式二：创建Thread实例时，传入一个Runnable实例
+    public class Main {
+        public static void main(String[] args) {
+            Thread t = new Thread(new MyRunnable());
+            t.start(); // 启动新线程
+        }
+    }
+    class MyRunnable implements Runnable {
+        @Override
+        public void run() {
+            System.out.println("start new thread!");
+        }
+    }
+    当main线程对线程对象t调用join()方法时，主线程将等待变量t表示的线程运行结束，即join就是指等待该线程结束，然后才继续往下执行自身线程。
+### 中断线程
+    t.interrupt()
+    在其他线程中对目标线程调用interrupt()方法，目标线程需要反复检测自身状态是否是interrupted状态，如果是，就立刻结束运行
+    注意，interrupt()方法仅仅向t线程发出了“中断请求”，至于t线程是否能立刻响应，要看具体代码。
+    
+    另一个常用的中断线程的方法是设置标志位。我们通常会用一个running标志位来标识线程是否应该继续运行，在外部线程中，通过把HelloThread.running置为false，就可以让线程结束
+    线程类中 public volatile boolean running = true;  # 线程共享变量
+    volatile关键字解决的是可见性问题：当一个线程修改了某个共享变量的值，其他线程能够立刻看到修改后的值。
+### 守护线程
+    如果有一个线程没有退出，JVM进程就不会退出。所以，必须保证所有线程都能及时结束。 
+    守护线程是指为其他线程服务的线程。在JVM中，所有非守护线程都执行完毕后，无论有没有守护线程，虚拟机都会自动退出。
+    Thread t = new MyThread();
+    t.setDaemon(true);
+    t.start();
+### 线程同步
+    synchronized关键字对一个对象进行加锁
+    synchronized保证了代码块在任意时刻最多只有一个线程能执行
+    synchronized(共享变量) {
+        // 操作
+    }
+    注意加锁对象必须是同一个实例；
