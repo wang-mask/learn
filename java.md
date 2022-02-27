@@ -742,4 +742,246 @@
     synchronized(共享变量) {
         // 操作
     }
+    也可以：用synchronized修饰的方法就是同步方法，它表示整个方法都必须用this实例加锁
+    public synchronized void add(int n) { // 锁住this
+        count += n;
+    } // 解锁
     注意加锁对象必须是同一个实例；
+    大部分类，例如ArrayList，都是非线程安全的类，我们不能在多线程中修改它们
+    JVM允许同一个线程重复获取同一个锁，这种能被同一个线程反复获取的锁，就叫做可重入锁
+
+### 线程协调
+    wait()
+    当线程阻塞时，可以使用wait()方法释放锁，待条件允许后再获得锁继续运行
+    wait()方法必须在当前获取的锁对象上调用，这里获取的是this锁，因此调用this.wait()
+    notify() 、 notifyAll()
+    在相同的锁上调用notify()方法，即可唤醒等待的线程
+### 其他锁
+    轻量锁：ReentrantLock、Condition
+    读写锁：ReadWriteLock，只能有一个写，可以多个读，改进的的读写锁StampedLock
+### 线程安全的集合类
+|interface|non-thread-safe|thread-safe|
+|----|----|----|
+|List|ArrayList|CopyOnWriteArrayList|
+|Map|HashMap|ConcurrentHashMap|
+|Set|HashSet / TreeSet|CopyOnWriteArraySet|
+Queue|ArrayDeque / LinkedList	|ArrayBlockingQueue / LinkedBlockingQueue|
+|Deque|ArrayDeque / LinkedList|	LinkedBlockingDeque|
+### 线程池
+    线程池内部维护了若干个线程，没有任务的时候，这些线程都处于等待状态。如果有新任务，就分配一个空闲线程执行。如果所有线程都处于忙碌状态，新任务要么放入队列等待，要么增加一个新线程进行处理。
+    // 创建固定大小的线程池:
+    ExecutorService executor = Executors.newFixedThreadPool(3);
+    // 提交任务:
+    executor.submit(task1);
+    executor.submit(task2);
+    executor.shutdown();
+    Java标准库提供的几个常用实现类有：
+    FixedThreadPool：线程数固定的线程池；
+    CachedThreadPool：线程数根据任务动态调整的线程池；
+    SingleThreadExecutor：仅单线程执行的线程池。
+    ScheduledThreadPool：周期性运行线程操作
+
+    在执行多个任务的时候，使用Java标准库提供的线程池是非常方便的。我们提交的任务只需要实现Runnable接口，就可以让线程池去执行
+    Runnable接口有个问题，它的方法没有返回值。如果任务需要一个返回结果，那么只能保存到变量，还要提供额外的方法读取，非常不便。所以，Java标准库还提供了一个Callable接口，和Runnable接口比，它多了一个返回值
+    class Task implements Callable<String> {
+        public String call() throws Exception {
+            return longTimeCalculation(); 
+        }
+    }
+    ExecutorService executor = Executors.newFixedThreadPool(4); 
+    // 定义任务:
+    Callable<String> task = new Task();
+    // 提交任务并获得Future:
+    Future<String> future = executor.submit(task);
+    // 从Future获取异步执行返回的结果:
+    String result = future.get(); // 可能阻塞
+
+    一个Future<V>接口表示一个未来可能会返回的结果，它定义的方法有：
+    get()：获取结果（可能会等待）
+    get(long timeout, TimeUnit unit)：获取结果，但只等待指定的时间；
+    cancel(boolean mayInterruptIfRunning)：取消当前任务；
+    isDone()：判断任务是否已完成。
+
+### CompletableFuture
+    java版的promise
+    指定回调函数，而不用get()阻塞等待和循环查询是否执行完毕
+    thenAccept()处理正常结果；
+    exceptional()处理异常结果；
+    thenApplyAsync()用于串行化另一个CompletableFuture；
+    anyOf()和allOf()用于并行化多个CompletableFuture。
+
+### ThreadLocal
+    同一线程中共享变量，减少参数传递，即设置线程的上下文
+    ThreadLocal实例通常总是以静态字段初始化如下：
+    static ThreadLocal<User> threadLocalUser = new ThreadLocal<>();
+
+    void processUser(user) {
+        try {
+            threadLocalUser.set(user);
+            step1();
+            step2();
+        } finally {
+            threadLocalUser.remove();
+        }
+    }
+
+    在该线程中使用User u = threadLocalUser.get();获取公用的User变量实例
+    实际上，可以把ThreadLocal看成一个全局Map<Thread, Object>：每个线程获取ThreadLocal变量时，总是使用Thread自身作为key
+    因此，ThreadLocal相当于给每个线程都开辟了一个独立的存储空间，各个线程的ThreadLocal关联的实例互不干扰。
+
+## Maven
+    Maven就是是专门为Java项目打造的管理和构建工具，它的主要功能有：
+    提供了一套标准化的项目结构；
+    提供了一套标准化的构建流程（编译，测试，打包，发布……）；
+    提供了一套依赖管理机制。
+    a-maven-project
+    ├── pom.xml
+    ├── src
+    │   ├── main
+    │   │   ├── java
+    │   │   └── resources
+    │   └── test
+    │       ├── java
+    │       └── resources
+    └── target
+
+    pom.xml：
+    <groupId>com.itranswarp.learnjava</groupId>
+	<artifactId>hello</artifactId>
+	<version>1.0</version>
+	<packaging>jar</packaging>
+    groupId类似于Java的包名，通常是公司或组织名称，artifactId类似于Java的类名，通常是项目名称，再加上version，一个Maven工程就是由groupId，artifactId和version作为唯一标识。
+    使用<dependency>声明一个依赖后，Maven就会自动下载这个依赖包并把它放到classpath中。
+### 依赖关系
+    Maven定义了几种依赖关系，分别是compile、test、runtime和provided：
+    使用<scope>test</scope>表面依赖关系
+|scope|说明|示例|
+|----|----|----|
+|compile|编译时需要用到该jar包（默认)|commons-logging|
+|test|编译Test时需要用到该jar包|junit|
+|runtime|编译时不需要，但运行时需要用到|mysql|
+|provided|编译时需要用到，但运行时由JDK或某个服务器提供|servlet-api|
+
+### 构建流程
+    Maven不但有标准化的项目结构，而且还有一套标准化的构建流程，可以自动化实现编译，打包，发布，等等。
+    如果我们运行mvn package，Maven就会执行default生命周期，它会从开始一直运行到package这个phase为止
+    Maven另一个常用的生命周期是clean
+    运行mvn clean package，Maven先执行clean生命周期并运行到clean这个phase，然后执行default生命周期并运行到package这个phase
+    经常用到的phase其实只有几个：
+    clean：清理
+    compile：编译
+    test：运行测试
+    package：打包
+### 插件
+    maven执行的各项工作都是通过内置的或自定义外部的插件完成的（它本身只是管理而已）
+    mvn xxx命令，xxx阶段和其之前的阶段在执行时，具体的工作逻辑都是由各个阶段的goal来完成，而执行工具是对应的plugin
+    自带插件直接会在阶段中调用，而自定义插件则需要在使用该插件的项目的pom.xml文件中添加配置信息
+
+## 网络编程
+    一个应用程序通过一个Socket来建立一个远程连接，而Socket内部通过TCP/IP协议把数据传输到网络
+    Socket、TCP和部分IP的功能都是由操作系统提供的，不同的编程语言只是提供了对操作系统调用的简单的封装
+    一个Socket就是由IP地址和端口号（范围是0～65535）组成
+### TCP编程
+    服务器端：
+    ServerSocket ss = new ServerSocket(6666); // 监听指定端口
+    System.out.println("server is running...");
+    for (;;) {
+        Socket sock = ss.accept();
+        System.out.println("connected from " + sock.getRemoteSocketAddress());
+        Thread t = new Handler(sock);
+        t.start();
+    }
+
+    客户端：
+    Socket sock = new Socket("localhost", 6666); // 连接指定服务器和端口
+    try (InputStream input = sock.getInputStream()) {
+        try (OutputStream output = sock.getOutputStream()) {
+            handle(input, output);
+        }
+    }
+    sock.close();
+    System.out.println("disconnected.");
+
+    服务器端用ServerSocket监听指定端口；
+    客户端使用Socket(InetAddress, port)连接服务器；
+    服务器端用accept()接收连接并返回Socket；
+    双方通过Socket打开InputStream/OutputStream读写数据；
+    服务器端通常使用多线程同时处理多个客户端连接，利用线程池可大幅提升效率；
+    flush()用于强制输出缓冲区到网络。
+
+### UDP编程
+    UDP端口和TCP端口虽然都使用0~65535，但他们是两套独立的端口，即一个应用程序用TCP占用了端口1234，不影响另一个应用程序用UDP占用端口1234。
+    服务端：
+    DatagramSocket ds = new DatagramSocket(6666); // 监听指定端口
+    for (;;) { // 无限循环
+        // 数据缓冲区:
+        byte[] buffer = new byte[1024];
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        ds.receive(packet); // 收取一个UDP数据包
+        // 收取到的数据存储在buffer中，由packet.getOffset(), packet.getLength()指定起始位置和长度
+        // 将其按UTF-8编码转换为String:
+        String s = new String(packet.getData(), packet.getOffset(), packet.getLength(), StandardCharsets.UTF_8);
+        // 发送数据:
+        byte[] data = "ACK".getBytes(StandardCharsets.UTF_8);
+        packet.setData(data);
+        ds.send(packet);
+    }
+
+    客户端：
+    DatagramSocket ds = new DatagramSocket();
+    ds.setSoTimeout(1000);
+    ds.connect(InetAddress.getByName("localhost"), 6666); // 连接指定服务器和端口
+    // 发送:
+    byte[] data = "Hello".getBytes();
+    DatagramPacket packet = new DatagramPacket(data, data.length);
+    ds.send(packet);
+    // 接收:
+    byte[] buffer = new byte[1024];
+    packet = new DatagramPacket(buffer, buffer.length);
+    ds.receive(packet);
+    String resp = new String(packet.getData(), packet.getOffset(), packet.getLength());
+    ds.disconnect();
+## XML与JSON
+    XML和JSON是两种经常在网络使用的数据表示格式
+### XML
+    XML是可扩展标记语言（eXtensible Markup Language）的缩写，它是是一种数据表示格式，可以描述非常复杂的数据结构，常用于传输和存储数据。
+### JSON
+    JSON是JavaScript Object Notation的缩写，它去除了所有JavaScript执行代码，只保留JavaScript的对象格式
+    把JSON解析为JavaBean的过程称为反序列化。如果把JavaBean变为JSON，那就是序列化。
+    再解析json时json有些字段的类型并不能匹配上对应的java类型，这时候就需要自定义解析
+    举个例子，假设Book类的isbn是一个BigInteger：
+    public class Book {
+        public String name;
+        public BigInteger isbn;
+    }
+    但JSON数据并不是标准的整形格式：
+    {
+        "name": "Java核心技术",
+        "isbn": "978-7-111-54742-6"
+    }
+    这时，我们需要自定义一个IsbnDeserializer，用于解析含有非数字的字符串：
+
+    public class IsbnDeserializer extends JsonDeserializer<BigInteger> {
+        public BigInteger deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+            // 读取原始的JSON字符串内容:
+            String s = p.getValueAsString();
+            if (s != null) {
+                try {
+                    return new BigInteger(s.replace("-", ""));
+                } catch (NumberFormatException e) {
+                    throw new JsonParseException(p, s, e);
+                }
+            }
+            return null;
+        }
+    }
+    然后，在Book类中使用注解标注：
+
+    public class Book {
+        public String name;
+        // 表示反序列化isbn时使用自定义的IsbnDeserializer:
+        @JsonDeserialize(using = IsbnDeserializer.class)
+        public BigInteger isbn;
+    }
+
+
